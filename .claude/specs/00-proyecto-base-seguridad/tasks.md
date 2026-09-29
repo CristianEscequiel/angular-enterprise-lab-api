@@ -179,7 +179,7 @@
     distinguir el motivo).
   - _Requisitos: REQ-7, REQ-9, REQ-10_
 
-- [ ] 18. Autorización por rol (`AccessPolicy`, `JsonAccessDeniedHandler`)
+- [x] 18. Autorización por rol (`AccessPolicy`, `JsonAccessDeniedHandler`)
   - Detalle: `AccessPolicy.requireRole(Role...)` en `auth/domain`, lanza
     `ForbiddenOperationException` si el rol actual no está permitido (el
     advice de la tarea 12 la traduce a 403); `JsonAccessDeniedHandler`

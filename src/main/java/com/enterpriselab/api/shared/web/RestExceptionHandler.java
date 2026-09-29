@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.enterpriselab.api.auth.domain.ForbiddenOperationException;
 import com.enterpriselab.api.auth.domain.InvalidCredentialsException;
 
 /**
@@ -54,6 +55,13 @@ public class RestExceptionHandler {
             HttpServletRequest request) {
         ApiError body = ApiError.of("INVALID_CREDENTIALS", exception.getMessage(), request.getRequestURI());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ResponseEntity<ApiError> handleForbidden(ForbiddenOperationException exception,
+            HttpServletRequest request) {
+        ApiError body = ApiError.of("FORBIDDEN", exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

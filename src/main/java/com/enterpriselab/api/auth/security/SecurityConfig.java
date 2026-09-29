@@ -20,7 +20,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-            JsonAuthenticationEntryPoint entryPoint) throws Exception {
+            JsonAuthenticationEntryPoint entryPoint, JsonAccessDeniedHandler accessDeniedHandler)
+            throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -29,9 +30,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                         .jwt(Customizer.withDefaults()));
         return http.build();
     }
