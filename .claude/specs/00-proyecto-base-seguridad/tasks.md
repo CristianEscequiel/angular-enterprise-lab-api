@@ -145,10 +145,13 @@
     la misma excepción con el mismo mensaje.
   - _Requisitos: REQ-7, REQ-8_
 
-- [ ] 15. `POST /auth/login` (`AuthController`)
+- [x] 15. `POST /auth/login` (`AuthController`)
   - Detalle: `LoginRequest`/`LoginResponse` (DTOs, Bean Validation en
     `LoginRequest`), delega en `AuthService`, mapea
     `InvalidCredentialsException` → 401 vía el advice de la tarea 12.
+    Nota: se adelantó una `SecurityConfig` mínima (rutas públicas
+    `/actuator/health` y `POST /auth/login`, sin sesión ni CSRF), porque la
+    cadena por defecto de Boot bloquea el login; la tarea 16 la completa.
   - Depende de: 12, 14
   - Verificación: `AuthControllerIT` — login con credenciales válidas
     devuelve `200` con token; usuario inexistente y contraseña incorrecta

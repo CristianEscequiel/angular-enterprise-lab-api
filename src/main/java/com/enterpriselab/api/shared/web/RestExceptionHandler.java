@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.enterpriselab.api.auth.domain.InvalidCredentialsException;
+
 /**
  * REQ-13: manejador global de excepciones — cualquier error controlado
  * responde el mismo {@link ApiError}, nunca el stacktrace por defecto de
@@ -45,6 +47,13 @@ public class RestExceptionHandler {
         ApiError body = ApiError.of("VALIDATION_ERROR", "La solicitud tiene datos inválidos",
                 request.getRequestURI(), details.isEmpty() ? null : details);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiError> handleInvalidCredentials(InvalidCredentialsException exception,
+            HttpServletRequest request) {
+        ApiError body = ApiError.of("INVALID_CREDENTIALS", exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
