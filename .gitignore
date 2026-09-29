@@ -22,3 +22,6 @@ Thumbs.db
 ### App ###
 *.log
 /tmp/
+
+### Claude Code (estado de sesion, no del proyecto) ###
+.claude/scheduled_tasks.lock
