@@ -81,6 +81,17 @@ class AuthControllerIT extends AbstractPostgresIT {
         assertThat(response.getBody()).containsEntry("code", "VALIDATION_ERROR");
     }
 
+    /** Las contraseñas de la tabla del README (tarea 21) deben ser las del seed. */
+    @Test
+    void everySeedUserDocumentedInTheReadmeCanLogIn() {
+        for (String[] credentials : new String[][] {
+                {"admin", "admin123"}, {"teamleader", "teamleader123"}, {"produccion", "produccion123"},
+                {"tecnico", "tecnico123"}, {"electricista", "electricista123"}}) {
+            assertThat(login(credentials[0], credentials[1], LoginResponse.class).getStatusCode())
+                    .as(credentials[0]).isEqualTo(HttpStatus.OK);
+        }
+    }
+
     @Test
     void meWithValidTokenReturnsTheUserData() {
         String token = login("tecnico", "tecnico123", LoginResponse.class).getBody().token();

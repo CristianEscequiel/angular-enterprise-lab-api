@@ -215,7 +215,7 @@
     `200`.
   - _Requisitos: REQ-14_
 
-- [ ] 21. README de arranque
+- [x] 21. README de arranque
   - Detalle: pasos para levantar el proyecto (`docker compose up -d`,
     `./gradlew bootRun --args='--spring.profiles.active=dev'`), tabla de
     usuarios de seed con sus contraseñas en claro (referenciadas desde la
