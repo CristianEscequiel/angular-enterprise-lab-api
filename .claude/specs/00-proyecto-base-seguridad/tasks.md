@@ -11,7 +11,7 @@
   - Verificación: `./gradlew build` compila sin errores.
   - _Requisitos: base técnica, sin REQ directo_
 
-- [ ] 2. `docker-compose.yaml` con PostgreSQL
+- [x] 2. `docker-compose.yaml` con PostgreSQL
   - Detalle: servicio `postgres:16-alpine`, puerto 5432 expuesto, mismas
     credenciales que usará `application.yml`, volumen nombrado, healthcheck
     con `pg_isready` (design.md §6).

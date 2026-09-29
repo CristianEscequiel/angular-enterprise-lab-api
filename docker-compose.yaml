@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: angular-enterprise-lab-postgres
+    environment:
+      POSTGRES_DB: enterpriselab
+      POSTGRES_USER: enterpriselab
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-enterpriselab}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enterpriselab -d enterpriselab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
