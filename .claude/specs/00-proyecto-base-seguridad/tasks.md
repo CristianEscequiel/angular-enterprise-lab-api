@@ -134,7 +134,7 @@
     `tecnico` no lleva claim `legajo`.
   - _Requisitos: REQ-7_
 
-- [ ] 14. `AuthService.login`
+- [x] 14. `AuthService.login`
   - Detalle: busca el usuario por el puerto `UserRepository`; si no existe,
     igual corre `passwordEncoder.matches` contra un hash dummy para no
     filtrar tiempos; en cualquier fallo lanza `InvalidCredentialsException`

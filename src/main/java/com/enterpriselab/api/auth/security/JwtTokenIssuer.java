@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Component;
 
+import com.enterpriselab.api.auth.domain.TokenIssuer;
 import com.enterpriselab.api.auth.domain.User;
 
 /**
@@ -18,7 +19,7 @@ import com.enterpriselab.api.auth.domain.User;
  * {@code iat}/{@code exp} según {@code app.jwt.ttl} (design.md §4).
  */
 @Component
-public class JwtTokenIssuer {
+public class JwtTokenIssuer implements TokenIssuer {
 
     private final JwtEncoder jwtEncoder;
     private final JwtProperties jwtProperties;
@@ -28,6 +29,10 @@ public class JwtTokenIssuer {
         this.jwtProperties = jwtProperties;
     }
 
+    @Override
+    public String issueToken(User user) {
+        return issue(user).getTokenValue();
+    }
 
     public Jwt issue(User user) {
         Instant now = Instant.now();
