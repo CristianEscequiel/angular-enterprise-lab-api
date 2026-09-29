@@ -91,7 +91,7 @@
     `password_hash` empieza con `$2a$`/`$2b$`.
   - _Requisitos: REQ-5, REQ-6_
 
-- [ ] 10. Dominio de autenticación (`auth/domain`)
+- [x] 10. Dominio de autenticación (`auth/domain`)
   - Detalle: `User` (record), enum `Role` con `fromValue`/`toValue`
     kebab-case, puerto `UserRepository` (`findByUsername`), excepción
     `InvalidCredentialsException`. Sin anotaciones de Spring Data ni JPA
