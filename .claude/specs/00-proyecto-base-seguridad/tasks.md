@@ -72,7 +72,7 @@
     `CHECK`; insertar un rol fuera de los cuatro valores viola el `CHECK`.
   - _Requisitos: REQ-4, REQ-5_
 
-- [ ] 8. Bean `PasswordEncoder` (BCrypt)
+- [x] 8. Bean `PasswordEncoder` (BCrypt)
   - Detalle: `BCryptPasswordEncoder` (strength 10) expuesto como bean en
     `auth/security`.
   - Depende de: 1
