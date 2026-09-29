@@ -80,7 +80,7 @@
     mismo valor da `true`; el hash resultante empieza con `$2a$` o `$2b$`.
   - _Requisitos: REQ-6_
 
-- [ ] 9. Seed de usuarios de desarrollo (`db/seed/V1_1__seed_users.sql`)
+- [x] 9. Seed de usuarios de desarrollo (`db/seed/V1_1__seed_users.sql`)
   - Detalle: un usuario por cada uno de los cuatro roles, replicando los de
     `db.json` del frontend; hashes BCrypt precalculados con el encoder de la
     tarea 8; contraseñas en claro documentadas en el README (tarea 21).
