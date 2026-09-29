@@ -1,3 +1,41 @@
 spring:
   application:
     name: angular-enterprise-lab-api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/enterpriselab
+    username: enterpriselab
+    password: ${DB_PASSWORD:enterpriselab}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  error:
+    include-stacktrace: never
+
+app:
+  jwt:
+    # Sin default: en un perfil que no sea "dev" el arranque debe fallar si
+    # no se provee explícitamente (>= 32 bytes para HS256).
+    secret: ${JWT_SECRET}
+    ttl: 60m
+  cors:
+    allowed-origins:
+      - http://localhost:4200
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  flyway:
+    # En dev se suma el seed de usuarios de prueba (tarea 9); en el resto de
+    # los perfiles solo corre el esquema de db/migration.
+    locations: classpath:db/migration,classpath:db/seed
+
+app:
+  jwt:
+    # Único perfil con un secreto por defecto: nunca debe llegar a producción.
+    secret: ${JWT_SECRET:dev-only-secret-change-me-32-bytes-min}

@@ -20,7 +20,7 @@
     muestra el servicio en estado `healthy`.
   - _Requisitos: REQ-2_
 
-- [ ] 3. `application.yml` base, perfil `dev` y config de fail-fast
+- [x] 3. `application.yml` base, perfil `dev` y config de fail-fast
   - Detalle: bloque `spring.datasource`, `jpa.hibernate.ddl-auto: validate`,
     `flyway.locations`, `app.jwt.*`, `app.cors.*`,
     `server.error.include-stacktrace: never`; bloque de perfil `dev` con
