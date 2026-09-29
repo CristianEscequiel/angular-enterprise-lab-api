@@ -51,7 +51,7 @@
     `{"status":"UP"}`.
   - _Requisitos: REQ-1_
 
-- [ ] 6. Fail fast si no hay conexión a la base de datos
+- [x] 6. Fail fast si no hay conexión a la base de datos
   - Detalle: sin cambios de código más allá de la config por defecto de
     Hikari/Flyway (`initializationFailTimeout=1`, sin reintentos silenciosos);
     esta tarea es la que confirma el comportamiento.
