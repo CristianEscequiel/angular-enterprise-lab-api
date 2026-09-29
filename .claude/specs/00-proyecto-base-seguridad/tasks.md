@@ -61,7 +61,7 @@
     `Connection`; el contexto no queda parcialmente inicializado.
   - _Requisitos: REQ-3_
 
-- [ ] 7. Migración Flyway `V1__init.sql` (tablas `technicians` y `users`)
+- [x] 7. Migración Flyway `V1__init.sql` (tablas `technicians` y `users`)
   - Detalle: SQL de design.md §3 — `technicians(id, legajo UNIQUE NOT NULL)`,
     `users(id, username UNIQUE, password_hash, role CHECK IN (...),
     technician_id FK nullable)` con el `CHECK` cruzado
