@@ -44,10 +44,17 @@ aprobación, aunque el pedido parezca claro.
 ## Estado actual
 
 - Spec 00 (proyecto base y seguridad): `requirements.md`, `design.md` y
-  `tasks.md` aprobados (2026-09-29). Lista para implementar, empezando por
-  la tarea 1 de `tasks.md`.
-- Sin código todavía — este archivo se escribió antes de la primera línea
-  de Java, a propósito.
+  `tasks.md` aprobados (2026-09-29). Las 22 tareas están implementadas y
+  marcadas en `tasks.md`; los tests pasan con `./gradlew test`.
+- Pendiente de verificación manual: seguir el README en un entorno limpio
+  (tarea 21) y comprobar que el workflow de `.github/workflows/ci.yml`
+  termine en verde en un PR de prueba (tarea 22).
+- Implementado: login (`POST /auth/login`), `GET /auth/me`, JWT HS256,
+  `AccessPolicy` (autorización por rol en `domain`), 401/403 en formato
+  `ApiError`, CORS, OpenAPI (springdoc) y seed de usuarios en el perfil `dev`.
+- Próximo paso: la siguiente spec (work orders); los endpoints restringidos
+  por rol reales llegan ahí.
+- Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 
 ## Testing
 
