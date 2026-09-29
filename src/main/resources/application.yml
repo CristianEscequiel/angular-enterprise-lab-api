@@ -15,6 +15,14 @@ server:
   error:
     include-stacktrace: never
 
+management:
+  endpoint:
+    health:
+      # Explícito aunque coincida con el default de Boot: REQ-1 no debe
+      # exponer detalles de componentes (DB, disco, etc.), solo el estado
+      # agregado.
+      show-details: never
+
 app:
   jwt:
     # Sin default: en un perfil que no sea "dev" el arranque debe fallar si

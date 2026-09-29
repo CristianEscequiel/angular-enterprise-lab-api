@@ -43,7 +43,7 @@
     de Spring sin errores.
   - _Requisitos: infraestructura de verificación, sin REQ directo_
 
-- [ ] 5. Health check (`GET /actuator/health`)
+- [x] 5. Health check (`GET /actuator/health`)
   - Detalle: config mínima de Actuator (`show-details: never`), expuesto sin
     autenticación.
   - Depende de: 3, 4
