@@ -194,7 +194,7 @@
     `administrador` recibe `200`.
   - _Requisitos: REQ-11_
 
-- [ ] 19. CORS para el frontend (`CorsProperties`, `CorsConfigurationSource`)
+- [x] 19. CORS para el frontend (`CorsProperties`, `CorsConfigurationSource`)
   - Detalle: orígenes desde `app.cors.allowed-origins` (`design.md` §6),
     métodos GET/POST/PUT/PATCH/DELETE, headers `Authorization` y
     `Content-Type`; si la lista de orígenes contiene `*`, la aplicación

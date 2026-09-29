@@ -23,6 +23,7 @@ public class SecurityConfig {
             JsonAuthenticationEntryPoint entryPoint, JsonAccessDeniedHandler accessDeniedHandler)
             throws Exception {
         http
+                .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
