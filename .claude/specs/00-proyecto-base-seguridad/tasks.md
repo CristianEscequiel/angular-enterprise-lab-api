@@ -101,7 +101,7 @@
     válidos resuelven al enum correcto y un valor inválido lanza excepción.
   - _Requisitos: REQ-5_
 
-- [ ] 11. Persistencia de usuarios (`auth/persistence`)
+- [x] 11. Persistencia de usuarios (`auth/persistence`)
   - Detalle: `UserEntity`, `TechnicianEntity`, `UserJpaRepository` (Spring
     Data), `UserRepositoryAdapter` (implementa el puerto de dominio),
     `UserMapper` manual entity↔dominio.

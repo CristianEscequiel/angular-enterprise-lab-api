@@ -21,7 +21,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * anotado y configura el {@code DataSource} de test contra el contenedor.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-abstract class AbstractPostgresIT {
+public abstract class AbstractPostgresIT {
 
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
