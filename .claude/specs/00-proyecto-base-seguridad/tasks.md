@@ -124,7 +124,7 @@
     HTTP status esperados con la forma `{code,message,timestamp,path}`.
   - _Requisitos: REQ-13_
 
-- [ ] 13. Emisión de JWT (`auth/security`: `JwtConfig`, `JwtTokenIssuer`)
+- [x] 13. Emisión de JWT (`auth/security`: `JwtConfig`, `JwtTokenIssuer`)
   - Detalle: `JwtEncoder`/`JwtDecoder` (Nimbus, HS256) con clave desde
     `app.jwt.secret`; `JwtTokenIssuer.issue(User)` arma el token con claims
     `sub`, `role`, `legajo` (si aplica), `iat`, `exp` según `app.jwt.ttl`.
