@@ -158,7 +158,7 @@
     devuelven el **mismo** cuerpo `401`.
   - _Requisitos: REQ-7, REQ-8_
 
-- [ ] 16. `SecurityConfig` + `JsonAuthenticationEntryPoint`
+- [x] 16. `SecurityConfig` + `JsonAuthenticationEntryPoint`
   - Detalle: filter chain de resource-server, rutas públicas
     (`/actuator/health`, `/auth/login`, `/swagger-ui.html`,
     `/v3/api-docs/**`) vs. autenticadas; `JsonAuthenticationEntryPoint`
