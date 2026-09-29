@@ -112,7 +112,7 @@
     devuelve vacío.
   - _Requisitos: REQ-4, REQ-5_
 
-- [ ] 12. Manejo global de errores (`shared/web`)
+- [x] 12. Manejo global de errores (`shared/web`)
   - Detalle: `ApiError` (record: `code`, `message`, `timestamp`, `path`),
     `RestExceptionHandler` (`@RestControllerAdvice`) cubriendo validación
     (400), `NoResourceFoundException`/no encontrado (404) y excepción no
