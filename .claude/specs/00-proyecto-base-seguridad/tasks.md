@@ -34,7 +34,7 @@
     parseo/carga de la config).
   - _Requisitos: base para REQ-1, REQ-3, REQ-12_
 
-- [ ] 4. Base común de tests de integración (`AbstractPostgresIT`)
+- [x] 4. Base común de tests de integración (`AbstractPostgresIT`)
   - Detalle: clase base con `@Testcontainers` + `@ServiceConnection`
     levantando un único contenedor Postgres compartido para todas las IT
     (design.md §7).
