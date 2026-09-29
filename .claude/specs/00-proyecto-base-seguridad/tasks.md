@@ -169,7 +169,7 @@
     header `Authorization` devuelve `401` con el `ApiError` esperado.
   - _Requisitos: REQ-9_
 
-- [ ] 17. `GET /auth/me`
+- [x] 17. `GET /auth/me`
   - Detalle: endpoint protegido que lee el `Jwt` autenticado y devuelve
     `username`, `role`, `legajo`.
   - Depende de: 15, 16

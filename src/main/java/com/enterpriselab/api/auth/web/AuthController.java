@@ -2,6 +2,9 @@ package com.enterpriselab.api.auth.web;
 
 import jakarta.validation.Valid;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,5 +30,11 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return new LoginResponse(authService.login(request.username(), request.password()));
+    }
+
+    /** Identidad del token, ya validado por Spring Security (REQ-9 / REQ-10). */
+    @GetMapping("/me")
+    public MeResponse me(@AuthenticationPrincipal Jwt jwt) {
+        return new MeResponse(jwt.getSubject(), jwt.getClaimAsString("role"), jwt.getClaimAsString("legajo"));
     }
 }
