@@ -1,5 +1,6 @@
 package com.enterpriselab.api.auth.web;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.enterpriselab.api.auth.domain.AuthService;
+import com.enterpriselab.api.shared.web.OpenApiConfig;
 
 /**
  * REQ-7 / REQ-8: {@code POST /auth/login}. Solo traduce HTTP a
@@ -34,6 +36,7 @@ public class AuthController {
 
     /** Identidad del token, ya validado por Spring Security (REQ-9 / REQ-10). */
     @GetMapping("/me")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
     public MeResponse me(@AuthenticationPrincipal Jwt jwt) {
         return new MeResponse(jwt.getSubject(), jwt.getClaimAsString("role"), jwt.getClaimAsString("legajo"));
     }

@@ -205,7 +205,7 @@
     `http://evil.com` no lo devuelve.
   - _Requisitos: REQ-12_
 
-- [ ] 20. Documentación OpenAPI (springdoc)
+- [x] 20. Documentación OpenAPI (springdoc)
   - Detalle: `springdoc-openapi-starter-webmvc-ui`, esquema de seguridad
     `bearerAuth` aplicado a los endpoints protegidos, metadata básica
     (título, versión) de la API.
