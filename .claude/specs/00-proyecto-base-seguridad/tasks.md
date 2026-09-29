@@ -227,7 +227,7 @@
   - _Requisitos: soporte de REQ-2, REQ-5 — documentación, sin criterio EARS
     propio_
 
-- [ ] 22. CI: GitHub Actions (build + test por PR)
+- [x] 22. CI: GitHub Actions (build + test por PR)
   - Detalle: workflow que corre `./gradlew build` (incluye las IT con
     Testcontainers) en cada PR, mencionado como tarea propia en `tech.md`.
   - Depende de: 1–20 (corre toda la suite)
