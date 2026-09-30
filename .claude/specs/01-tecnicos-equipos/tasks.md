@@ -197,7 +197,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     métodos y el esquema `bearerAuth`.
   - _Requisitos: REQ-38_
 
-- [ ] 12. Cierre: documentación y verificación completa
+- [x] 12. Cierre: documentación y verificación completa
   - Detalle: el README suma técnicos y equipos al seed de `dev` (revisar si lista
     datos); `CLAUDE.md` actualiza "Estado actual" (spec 01 implementada,
     próximo paso 00-A); `ROADMAP.md` marca la 01 como hecha; el texto de REQ-36
@@ -234,3 +234,59 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
 | 39 | 5, 6, 9, 10 |
 | 40 | 6, 10 |
 | 41 | 6, 10 |
+
+## Cierre: recorrido de REQ-1 a REQ-41 (2026-09-30)
+
+Evidencia: `./gradlew test` en verde (todas las clases citadas corren sin fallas
+ni saltos) y una verificación manual contra la API levantada con el perfil `dev`
+sobre una base descartable (`curl` con `teamleader`, `admin` y `tecnico`).
+Siglas: **TCIT** = `TechnicianControllerIT`, **TmCIT** = `TeamControllerIT`,
+**TST** = `TechnicianServiceTest`, **TmST** = `TeamServiceTest`,
+**TRA** = `TechnicianRepositoryAdapterIT`, **TmRA** = `TeamRepositoryAdapterIT`.
+
+| REQ | Evidencia |
+|---|---|
+| 1 | TCIT: listado con los 3 técnicos del seed y los seis campos, para administrador y team leader; manual: `GET /technicians` → `200` |
+| 2 | TCIT: consulta de `1001` |
+| 3 | TCIT: legajo inexistente → `404 NOT_FOUND` con `ApiError` |
+| 4 | TCIT: alta → `201` con `Location`; TST: se guarda sin `id` |
+| 5 | TCIT: la cantidad de filas de `users` no cambia tras el alta |
+| 6 | TCIT: legajo repetido → `409 DUPLICATE_LEGAJO` sin fila nueva; TRA: dos `save` que saltean el servicio dan `DUPLICATE_LEGAJO` |
+| 7 | `LegajoTest`; TCIT: `400` con detalle `legajo` en el cuerpo del `POST` y en la URL de `GET`, `PUT` y `DELETE`; manual: `GET /technicians/abc` → `400` |
+| 8 | TST y TCIT: nombre o apellido ausente, vacío o en blanco → `400` en el campo |
+| 9 | TST, `SpecialtyTest`, `TeamTypeTest`, TCIT: especialidad y tipo de equipo ausentes o inválidos |
+| 10 | TST y TCIT: los nombres se guardan recortados en el alta y en la edición |
+| 11 | TCIT: `PUT` cambia los cuatro campos y conserva el legajo |
+| 12 | TCIT y TST: `PUT` con otro `legajo` → `400` y el técnico no cambia |
+| 13 | TCIT: `PUT` sobre un legajo inexistente → `404` y no crea nada |
+| 14 | TCIT: alta + baja → `204` y el técnico desaparece |
+| 15 | TCIT y TST: baja de `1001` (tiene login) → `409 TECHNICIAN_IN_USE` con "usuario de acceso"; TRA: la FK también se traduce; manual: `DELETE /technicians/1001` → `409` |
+| 16 | TCIT y TST: baja de un técnico en dos equipos → `409` con los dos nombres; manual: el mensaje lista "Guardia mecánica" |
+| 17 | TCIT: baja de un legajo inexistente → `404` |
+| 18 | TCIT: `produccion` y `tecnico` reciben `403` en las cinco operaciones, también con `abc` en la URL; TST (4 roles × 5 operaciones) y `MaintenancePermissionsTest`; manual: `tecnico` → `403` |
+| 19 | TCIT: `teamleader` recibe `403` en el `DELETE` y el técnico sigue; TST y `MaintenancePermissionsTest` |
+| 20 | TmCIT: listado con los 2 equipos del seed y sus cuatro campos; manual: `GET /teams` → `200` |
+| 21 | TmCIT: consulta de un equipo existente |
+| 22 | TmCIT: id inexistente → `404` |
+| 23 | TmCIT: alta → `201` con `id` numérico y `Location` |
+| 24 | TmCIT y TmST: nombre ausente, vacío o en blanco → `400`; se guarda recortado |
+| 25 | TmCIT y TmST: tipo ausente o inválido → `400` |
+| 26 | TmCIT y TmST: formato inválido (incluido un `null` en la lista), **contra `POST` y contra `PUT`**; el equipo queda intacto |
+| 27 | TmCIT y TmST: legajo inexistente → `400 UNKNOWN_TECHNICIAN` con el legajo, contra `POST` y `PUT`; manual: `POST /teams` con `9999` |
+| 28 | TmCIT y TmST: legajos repetidos → `400`, contra `POST` y `PUT` |
+| 29 | TmCIT y TmRA: los miembros se leen en el orden guardado (`sort_order`) |
+| 30 | TmCIT y TmRA: el mismo legajo en dos equipos |
+| 31 | TmCIT: `PUT` reemplaza nombre, tipo y miembros conservando uno y reordenando; TmRA: el reemplazo borra antes de insertar; los `PUT` fallidos dejan el equipo idéntico |
+| 32 | TmCIT: `PUT` sobre un id inexistente → `404` y no crea nada |
+| 33 | TmCIT y TmRA: baja → `204`, las membresías caen y los técnicos siguen |
+| 34 | TmCIT: baja de un id inexistente → `404` |
+| 35 | TmCIT: `administrador`, `produccion` y `tecnico` reciben `403` en las cinco operaciones; TmST (4 roles × 5 operaciones); manual: `admin` → `403` |
+| 36 | `MaintenanceMigrationIT` (columnas obligatorias, FK sin cascada desde técnicos, unique por par, cascada desde el equipo) y `MaintenanceUpgradeIT` (migrar sobre una base con `V1` y `V1_1` ya aplicadas) |
+| 37 | `SeedMaintenanceIT`, `MaintenanceUpgradeIT` (los ids de `1001` y `1002` y los vínculos de login se conservan; sin el seed no se carga nada); manual: los 3 técnicos y los 2 equipos |
+| 38 | `OpenApiIT`: las cuatro rutas con sus métodos, `bearerAuth` en cada operación y `401`/`403` documentados; manual: `/v3/api-docs` |
+| 39 | TST, TmST, TCIT y TmCIT: 100 caracteres pasa y 101 → `400` (tras recortar) |
+| 40 | TmST y TmCIT: `memberLegajos` ausente o `null` → `400` en `POST` y `PUT`; `[]` se acepta |
+| 41 | TmST y TmCIT: `GET`, `PUT` y `DELETE` con id `abc` → `404` |
+
+**Pendiente, fuera de esta sesión:** que el workflow de
+`.github/workflows/ci.yml` termine en verde en un PR (requiere crear el PR).

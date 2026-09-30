@@ -259,10 +259,10 @@ EL SISTEMA DEBERÁ responder `403 Forbidden` y no ejecutar la operación.
 ### REQ-36: Esquema del maestro de mantenimiento
 CUANDO la aplicación arranca contra una base que ya tiene las migraciones de la
 spec 00
-EL SISTEMA DEBERÁ aplicar una migración de Flyway que agregue a `technicians`
-nombre, apellido, especialidad y tipo de equipo, y cree `teams` y la relación de
+EL SISTEMA DEBERÁ aplicar las migraciones de Flyway que agreguen a `technicians`
+nombre, apellido, especialidad y tipo de equipo, y creen `teams` y la relación de
 miembros, con clave foránea hacia `technicians` (sin borrado en cascada) y un
-índice único por par equipo-técnico; y la migración DEBERÁ aplicarse también
+índice único por par equipo-técnico; y las migraciones DEBERÁN aplicarse también
 sobre las filas que el seed de la spec 00 ya insertó.
 
 ### REQ-37: Datos de prueba de dev
