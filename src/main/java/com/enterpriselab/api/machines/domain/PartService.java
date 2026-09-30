@@ -12,6 +12,7 @@ import com.enterpriselab.api.auth.domain.Role;
 import com.enterpriselab.api.shared.domain.ConflictException;
 import com.enterpriselab.api.shared.domain.InvalidReferenceException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
+import com.enterpriselab.api.shared.domain.NumericId;
 import com.enterpriselab.api.shared.domain.ValidationFailedException;
 
 /**
@@ -82,7 +83,7 @@ public class PartService {
     }
 
     private long requireMachine(String machineId) {
-        OptionalLong parsed = MachineIds.parse(machineId);
+        OptionalLong parsed = NumericId.parse(machineId);
         if (parsed.isEmpty() || !machines.existsById(parsed.getAsLong())) {
             throw new NotFoundException("No existe la máquina con id " + machineId);
         }
@@ -90,7 +91,7 @@ public class PartService {
     }
 
     private Part find(String id) {
-        OptionalLong parsed = MachineIds.parse(id);
+        OptionalLong parsed = NumericId.parse(id);
         if (parsed.isEmpty()) {
             throw notFound(id);
         }
@@ -106,7 +107,7 @@ public class PartService {
         if (parentId == null) {
             return null;
         }
-        OptionalLong parsed = MachineIds.parse(parentId);
+        OptionalLong parsed = NumericId.parse(parentId);
         Part parent = parsed.isEmpty() ? null : parts.findById(parsed.getAsLong()).orElse(null);
         if (parent == null) {
             throw new InvalidReferenceException(PARENT_PART_NOT_FOUND, "No existe la parte padre con id " + parentId);

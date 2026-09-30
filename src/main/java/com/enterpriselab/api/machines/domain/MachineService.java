@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.enterpriselab.api.auth.domain.Role;
 import com.enterpriselab.api.shared.domain.ConflictException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
+import com.enterpriselab.api.shared.domain.NumericId;
 import com.enterpriselab.api.shared.domain.ValidationFailedException;
 
 /**
@@ -74,7 +75,7 @@ public class MachineService {
     }
 
     private Machine find(String id) {
-        OptionalLong parsed = MachineIds.parse(id);
+        OptionalLong parsed = NumericId.parse(id);
         if (parsed.isEmpty()) {
             throw notFound(id);
         }

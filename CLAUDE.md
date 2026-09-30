@@ -82,12 +82,34 @@ aprobación, aunque el pedido parezca claro.
   `V6` con el seed `V6_1` (solo `dev`, ids de `db.json`). `ConstraintViolations`
   pasó a `shared/persistence`. Pendiente: que el workflow de CI termine en verde
   en un PR.
-- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (03 y 04
-  órdenes, 05 dashboard, 06 operación). Contrato de API decidido: REST limpio en
-  inglés. Los `requirements.md` se escriben de a una spec, con aprobación entre
-  cada una. **La spec 03 debe numerar sus migraciones desde `V7`** (la 01 usa
-  `V2`, `V2_1` y `V3`; la 00-A usa `V4`, `V4_1` y `V5`; la 02 usa `V6` y `V6_1`).
-  Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
+- Spec 03 (órdenes de trabajo: alta, consulta, edición, baja y listado, módulo
+  `workorders`): `requirements.md` (REQ-1 a REQ-46), `design.md` y `tasks.md`
+  aprobados (2026-09-30). Las 14 tareas están implementadas y marcadas;
+  `./gradlew test` pasa (908 tests) y el recorrido de REQ-1 a REQ-46 con su
+  evidencia está al final de `tasks.md`. Implementado: `GET /work-orders`
+  (paginado con `page`/`size`, respuesta `{data, page, size, totalItems,
+  totalPages}`, filtros `title`, `status` y `priority`), `GET`/`PUT`/`DELETE
+  /work-orders/{id}` y `POST /work-orders` (team leader crea `preventivo` y
+  `correctivo`, producción `pronto-intervencion`). El servidor fija el estado
+  inicial, el `createdAt` y el `breadcrumb` (una foto: sobrevive al renombre o la
+  baja de la máquina o la parte; `work_orders` no tiene FK hacia `machines` ni
+  `parts`). El `PUT` solo cambia título, descripción y prioridad, y rechaza cambiar
+  el tipo o la máquina. Orden de errores `401 → 403 → 400 formato → 404 → 400
+  referencia`; los parámetros de consulta se validan en `domain`. Migración `V7`
+  con el seed `V7_1` (solo `dev`, generado desde `db.json`; las tres órdenes de id
+  alfanumérico pasan a `30`, `31` y `32`). Las columnas de `takenBy` y
+  `closingNote` ya existen pero esta spec solo las lee. `MachineIds` pasó a
+  `shared/domain/NumericId`; `shared` suma `PageQuery`, `PageResult`,
+  `PageResponse` y `ClockConfig`. Pendiente: que el workflow de CI termine en
+  verde en un PR.
+- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (04 órdenes:
+  tomar, cerrar y liberar; 05 dashboard; 06 operación). Contrato de API decidido:
+  REST limpio en inglés. Los `requirements.md` se escriben de a una spec, con
+  aprobación entre cada una. **La spec 04 no debería necesitar migrar** (las
+  columnas de `takenBy` y `closingNote` ya están en `V7`; si lo necesita,
+  numera desde `V8`). Migraciones: la 01 usa `V2`, `V2_1` y `V3`; la 00-A usa `V4`,
+  `V4_1` y `V5`; la 02 usa `V6` y `V6_1`; la 03 usa `V7` y `V7_1`. Pendiente de
+  la spec 00: su cierre formal (REQ-1 a REQ-14).
 - Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 
 ## Testing

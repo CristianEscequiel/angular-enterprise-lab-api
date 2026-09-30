@@ -93,6 +93,21 @@ SEL-02  8 Cabezal térmico ── 9 Resistencia
         10 Mordaza
 ```
 
+## Órdenes de trabajo de desarrollo (seed)
+
+También solo con el perfil `dev`: las 32 órdenes del `db.json` del frontend (12
+`pending`, 9 `in-progress`, 9 `completed` y 2 `cancelled`), con sus `machineRef`,
+dueños y notas de cierre. Tres detalles del seed:
+
+- Las órdenes `1` a `29` conservan su id. Las tres que en `db.json` tienen un id
+  alfanumérico (`jgFCUkYKm4M`, `dW8mYm5vbQs` y `53mjVg8IKEk`, todas `pending`)
+  pasan a ser la `30`, la `31` y la `32`, porque los ids de las órdenes son
+  numéricos. La próxima orden que se cree es la `33`.
+- Los `createdAt` que `db.json` guarda sin zona horaria se interpretan como UTC.
+- Los dueños y autores de cierre `2` y `5` del frontend quedan a nombre de los
+  usuarios `tecnico` y `electricista` (los ids de usuario del backend no
+  coinciden con los del frontend); los nombres se conservan.
+
 ## Probar el login
 
 ```bash
@@ -146,6 +161,28 @@ curl -X PATCH http://localhost:8080/parts/11 \
   -d '{"name":"Tensor de cinta"}'
 ```
 
+Órdenes de trabajo: cualquier usuario autenticado puede leer. Crear requiere
+`teamleader` (tipos `preventivo` y `correctivo`) o `produccion` (tipo
+`pronto-intervencion`); editar, `admin` o `teamleader`; eliminar, solo `admin`. El
+listado se pagina y se filtra por título, estado y prioridad:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/work-orders"
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/work-orders?page=2&size=5&title=motor&status=pending&priority=high"
+
+curl -X POST http://localhost:8080/work-orders \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"title":"Revisar motor","description":"Vibración fuera de rango",
+       "type":"correctivo","priority":"high",
+       "machineRef":{"machineId":"1","partId":"3","comment":"Hace ruido"}}'
+```
+
+La respuesta del listado es `{data, page, size, totalItems, totalPages}`. El
+servidor fija el estado inicial (`pending`), el `createdAt` y el `breadcrumb` (la
+ruta `máquina > parte > sub-parte`, que es una foto: no cambia si después se
+renombra o elimina la máquina o la parte).
+
 ## Endpoints
 
 | Endpoint             | Acceso      | Descripción                                   |
@@ -164,6 +201,11 @@ curl -X PATCH http://localhost:8080/parts/11 \
 | `POST /machines/{machineId}/parts` | administrador, team leader | Alta de una parte de primer nivel o sub-parte; `400 PARENT_PART_NOT_FOUND` / `PARENT_PART_OTHER_MACHINE` |
 | `PATCH /parts/{id}` | administrador, team leader | Cambia solo el nombre; `400` si se intenta mover (`machineId` o `parentId` distintos) |
 | `DELETE /parts/{id}` | administrador, team leader | Baja; `409 PART_HAS_CHILDREN` si tiene sub-partes |
+| `GET /work-orders` | autenticado | Listado paginado (`page`, `size`, máx. 100) con filtros opcionales `title`, `status` y `priority`; `400` si un parámetro es inválido |
+| `GET /work-orders/{id}` | autenticado | Una orden completa, con `machineRef`, `takenBy` y `closingNote` si existen |
+| `POST /work-orders` | team leader (`preventivo`, `correctivo`), producción (`pronto-intervencion`) | Alta; `400` con `MACHINE_NOT_FOUND`, `PART_NOT_FOUND` o `PART_OTHER_MACHINE` si la referencia no resuelve |
+| `PUT /work-orders/{id}` | administrador, team leader | Edita título, descripción y prioridad, en cualquier estado; `400` si se intenta cambiar el tipo o la máquina |
+| `DELETE /work-orders/{id}` | administrador | Baja, en cualquier estado |
 | `/swagger-ui.html`, `/v3/api-docs/**` | público | Documentación OpenAPI          |
 
 Los errores controlados responden siempre `{code, message, timestamp, path}`.

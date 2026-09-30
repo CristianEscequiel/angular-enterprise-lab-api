@@ -108,6 +108,55 @@ class OpenApiIT extends AbstractPostgresIT {
                 .containsOnlyKeys("id", "machineId", "parentId", "name");
     }
 
+    /** REQ-45 (spec 03): todos los endpoints de órdenes, generados desde las anotaciones, con {@code bearerAuth}. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void apiDocsListEveryWorkOrderEndpointWithTheBearerSchemeAndTheListParameters() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+
+        assertThat(paths).containsKeys("/work-orders", "/work-orders/{id}");
+        assertThat(paths.get("/work-orders")).containsOnlyKeys("get", "post");
+        assertThat(paths.get("/work-orders/{id}")).containsOnlyKeys("get", "put", "delete");
+
+        for (String path : List.of("/work-orders", "/work-orders/{id}")) {
+            paths.get(path).forEach((method, operation) -> {
+                Map<String, Object> details = (Map<String, Object>) operation;
+                assertThat(details.get("security")).as(method + " " + path).isEqualTo(
+                        List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+                assertThat(details).as(method + " " + path).containsKey("summary");
+                assertThat((Map<String, Object>) details.get("responses")).as(method + " " + path)
+                        .containsKeys("401", "403");
+            });
+        }
+
+        Map<String, Object> list = (Map<String, Object>) paths.get("/work-orders").get("get");
+        List<Map<String, Object>> parameters = (List<Map<String, Object>>) list.get("parameters");
+        assertThat(parameters).extracting(p -> p.get("name"))
+                .containsExactlyInAnyOrder("page", "size", "title", "status", "priority");
+        assertThat(parameters).allSatisfy(p -> assertThat(p.get("in")).isEqualTo("query"));
+        assertThat((Map<String, Object>) list.get("responses")).containsKeys("200", "400");
+
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders").get("post"))
+                .get("responses")).containsKeys("201", "400");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders/{id}").get("get"))
+                .get("responses")).containsKeys("200", "404");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders/{id}").get("put"))
+                .get("responses")).containsKeys("200", "400", "404");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders/{id}").get("delete"))
+                .get("responses")).containsKeys("204", "404");
+
+        Map<String, Map<String, Object>> schemas = (Map<String, Map<String, Object>>) ((Map<String, Object>) body
+                .get("components")).get("schemas");
+        assertThat((Map<String, Object>) schemas.get("WorkOrderResponse").get("properties")).containsOnlyKeys("id",
+                "title", "description", "machineRef", "type", "priority", "status", "createdAt", "takenBy",
+                "closingNote");
+        assertThat((Map<String, Object>) schemas.get("MachineRefResponse").get("properties"))
+                .containsOnlyKeys("machineId", "partId", "breadcrumb", "comment");
+        assertThat((Map<String, Object>) schemas.get("PageResponseWorkOrderResponse").get("properties"))
+                .containsOnlyKeys("data", "page", "size", "totalItems", "totalPages");
+    }
+
     /**
      * Enmienda 00-A: el contrato de la sesión (REQ-17, REQ-20) está en la documentación generada
      * desde el código: el login devuelve {@code {token, user}} y {@code /auth/me} el mismo
