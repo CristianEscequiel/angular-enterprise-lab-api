@@ -87,7 +87,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
   - _Requisitos: REQ-4, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-12,
     REQ-13, REQ-14, REQ-15, REQ-16, REQ-17, REQ-18, REQ-19, REQ-39_
 
-- [ ] 6. `TeamService` y su puerto
+- [x] 6. `TeamService` y su puerto
   - Detalle: `TeamRepository` ya quedó definido en la tarea 5 (lo necesita
     `TechnicianService` para la baja); acá se usa. `TeamService` con `list`,
     `get`, `create`, `update` y `delete`. Un único validador de `memberLegajos`
