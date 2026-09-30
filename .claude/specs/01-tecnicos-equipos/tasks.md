@@ -106,7 +106,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     `get`, `update` y `delete`.
   - _Requisitos: REQ-20 a REQ-35, REQ-39, REQ-40, REQ-41_
 
-- [ ] 7. Persistencia de técnicos
+- [x] 7. Persistencia de técnicos
   - Detalle: mover `TechnicianEntity` de `auth/persistence` a
     `maintenance/persistence`, pública y con `firstName`, `lastName`,
     `specialty` y `teamType`; `UserEntity` solo cambia el `import`.
