@@ -292,7 +292,7 @@ que siempre: toda tarea deja `./gradlew test` en verde; las IT comparten un
     `role`, `legajo`, `iat` y `exp` (sin `specialty` ni `teamType`).
   - _Requisitos: REQ-15, REQ-18, REQ-19, REQ-23_
 
-- [ ] 26. `AuthService`: `AuthSession` y `currentUser`
+- [x] 26. `AuthService`: `AuthSession` y `currentUser`
   - Detalle: `AuthSession(String token, User user)` (dominio);
     `AuthService.login` devuelve `AuthSession` en lugar de un `String`;
     `AuthService.currentUser(username)` busca por el `sub` del token y lanza

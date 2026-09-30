@@ -31,7 +31,8 @@ public class AuthController {
 
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return new LoginResponse(authService.login(request.username(), request.password()));
+        // El cuerpo pasa a {token, user} en la tarea 28; hasta entonces solo el token.
+        return new LoginResponse(authService.login(request.username(), request.password()).token());
     }
 
     /** Identidad del token, ya validado por Spring Security (REQ-9 / REQ-10). */
