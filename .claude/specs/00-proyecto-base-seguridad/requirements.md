@@ -107,6 +107,106 @@ EL SISTEMA DEBERÁ mostrar la documentación interactiva de todos los
 endpoints expuestos en esta spec, generada desde las anotaciones del código
 (no un documento mantenido a mano).
 
+## Enmienda 00-A — contrato de sesión del frontend (2026-09-29)
+
+Se agrega a esta spec en vez de abrir una nueva (regla de `CLAUDE.md`: una
+enmienda edita la spec existente). Nace de comparar la spec 00 con el frontend
+(`auth.model.ts`, `auth.service.ts`), que espera que el login devuelva
+`{token, user}` con el perfil completo del usuario, y no solo `{token}`. **Amplía
+REQ-7** (el token y sus claims no cambian) y **redefine el cuerpo de
+`GET /auth/me`**. Depende de la spec 01, porque la especialidad y el tipo de
+equipo del técnico viven en el maestro de técnicos que esa spec completa.
+
+Decisiones tomadas para la enmienda:
+
+- `user` lleva `id` (string), `username`, `displayName`, `email`, `role` y, solo
+  para el rol `tecnico`, `legajo`, `specialty` y `teamType`; nunca la contraseña
+  ni su hash.
+- `GET /auth/me` devuelve **el mismo objeto `user`**, leído de la base en el
+  momento, no de los claims del token: si el perfil del técnico cambia, la
+  siguiente consulta lo refleja sin volver a iniciar sesión.
+- El token **no** incluye `specialty` ni `teamType`: pueden cambiar, y la
+  autoridad es la base (la spec 04 los lee de ahí para habilitar a un técnico).
+- Cambio de forma en `GET /auth/me` (hoy `{username, role, legajo}`): aún no tiene
+  consumidores, así que no hay que mantener compatibilidad.
+- Restricción con el seed: la migración agrega columnas obligatorias a filas que
+  el seed de dev ya insertó (`V1_1`), igual que en la spec 01.
+
+### REQ-15: Nombre visible y correo del usuario
+CUANDO la aplicación arranca contra una base que ya tiene las migraciones
+anteriores
+EL SISTEMA DEBERÁ aplicar las migraciones de Flyway que agreguen a `users`
+`display_name` y `email`, ambos obligatorios, y las migraciones DEBERÁN aplicarse
+también sobre los usuarios que el seed de dev ya insertó.
+
+### REQ-16: Datos de prueba del perfil
+CUANDO la aplicación arranca con el perfil `dev`
+EL SISTEMA DEBERÁ dejar cargados el nombre visible y el correo de los cinco
+usuarios de prueba, iguales a los de `db.json` del frontend (por ejemplo
+`admin`: "Administrador", `admin@enterprise-lab.dev`; `tecnico`: "Técnico
+Mecánico de Guardia", `tecnico@enterprise-lab.dev`), y no cargarlos en ningún otro
+perfil.
+
+### REQ-17: El login devuelve la sesión completa
+CUANDO un cliente envía `POST /auth/login` con credenciales válidas
+EL SISTEMA DEBERÁ responder `200 OK` con `{token, user}`, donde `user` contiene
+`id` como string, `username`, `displayName`, `email` y `role`.
+
+### REQ-18: Perfil del técnico en la sesión
+CUANDO el usuario que inicia sesión tiene rol `tecnico`
+EL SISTEMA DEBERÁ incluir en `user` su `legajo`, su `specialty` y su `teamType`,
+tomados del maestro de técnicos.
+
+### REQ-19: Sin perfil de técnico para el resto de los roles
+CUANDO el usuario que inicia sesión tiene rol `administrador`,
+`team-leader-mantenimiento` o `personal-produccion`
+EL SISTEMA DEBERÁ omitir `legajo`, `specialty` y `teamType` de `user`, en vez de
+enviarlos vacíos.
+
+### REQ-20: `GET /auth/me` devuelve el mismo usuario
+CUANDO un cliente autenticado solicita `GET /auth/me`
+EL SISTEMA DEBERÁ responder `200 OK` con un objeto con la misma forma que el
+`user` del login, con los datos leídos de la base en ese momento.
+
+### REQ-21: El perfil se refresca sin volver a iniciar sesión
+CUANDO el `teamType` o la `specialty` de un técnico cambia en el maestro
+DESPUÉS de que inició sesión
+EL SISTEMA DEBERÁ devolver el valor nuevo en la siguiente consulta de
+`GET /auth/me`, con el mismo token.
+
+### REQ-22: Nada sensible en las respuestas
+CUANDO se responde `POST /auth/login` o `GET /auth/me`
+EL SISTEMA DEBERÁ no incluir la contraseña ni su hash.
+
+### REQ-23: El token no lleva datos que pueden cambiar
+CUANDO se emite un token para un técnico
+EL SISTEMA DEBERÁ no incluir en sus claims `specialty` ni `teamType`, y conservar
+los claims de REQ-7 (`sub`, `role` y `legajo`).
+
+### REQ-24: `GET /auth/me` con un usuario que ya no existe
+CUANDO un cliente solicita `GET /auth/me` con un token válido y firmado cuyo
+usuario (`sub`) ya no existe en la base
+EL SISTEMA DEBERÁ responder `401 Unauthorized` con el mismo `ApiError` y el mismo
+`message` que para un token inválido (REQ-10), sin revelar que el usuario existió.
+
+### Auto-revisión de la enmienda
+
+- Un comportamiento por requisito; los caminos no felices (credenciales inválidas,
+  sin token, token inválido) ya están cubiertos por REQ-8 a REQ-10 y no cambian.
+- REQ-18 y REQ-19 se separan porque son dos formas distintas de la misma
+  respuesta, una por cada tipo de usuario.
+- Punto que decidí yo y conviene que confirmes: **`GET /auth/me` con la forma
+  completa** (REQ-20); el frontend hoy no lo llama porque restaura la sesión de
+  `localStorage`, pero es el endpoint natural para rehidratarla.
+- Ajustes al revisar los requisitos (2026-09-30): REQ-15 pasa de "una migración"
+  a "las migraciones" (con filas ya sembradas hacen falta tres pasos, igual que en
+  la spec 01) y se agrega REQ-24, porque leer la base en `GET /auth/me` (REQ-20)
+  abre el caso de un token válido de un usuario que ya no existe.
+- Efecto en lo ya implementado: `LoginResponse` (hoy `{token}`), `MeResponse`,
+  `AuthService`, `UserEntity` y los tests `AuthControllerIT`, `SeedUsersIT` y
+  `MigrationIT` cambian; hay que actualizar `design.md` y sumar tareas a
+  `tasks.md` de esta spec (sin borrar las ya hechas).
+
 ## Auto-revisión
 
 - Cada criterio cubre un solo comportamiento — ninguno mezcla dos "y"

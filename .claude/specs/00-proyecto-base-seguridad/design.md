@@ -192,3 +192,128 @@ Las IT extienden una base común `AbstractPostgresIT` con `@Testcontainers` y `@
 | 12 | §6 |
 | 13 | §1, §5 |
 | 14 | §1, §5 |
+| 15 a 24 | §10 (enmienda 00-A) |
+
+## 10. Enmienda 00-A — sesión completa del frontend (REQ-15 a REQ-24)
+
+Se agrega acá en vez de abrir una spec nueva (regla de `CLAUDE.md`). **Amplía** §3, §4 y §5 sin borrarlos: donde esta sección contradice a una anterior, manda esta. Nace de `auth.model.ts` del frontend, que espera `{token, user}` y valida `user` de forma estricta (`isAuthUser`: un técnico sin sus tres atributos, o un no-técnico con alguno de ellos presente, invalida la sesión).
+
+### 10.1 Decisiones técnicas
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Objeto de sesión | `User` (dominio) suma `displayName`, `email`, `specialty` y `teamType`; los tres últimos campos de perfil son `null` salvo en el técnico. La capa web arma un `UserResponse` con los campos **públicos** y nunca expone `passwordHash` | REQ-22. Una sola clase de dominio alcanza: el hash nunca sale porque `UserResponse` no lo tiene |
+| `specialty` y `teamType` en `auth.domain` | `String` (su valor kebab-case), no los enums de `maintenance.domain` | `maintenance.domain` ya importa `auth.domain` (`Role`, `AccessPolicy`); que `auth.domain` importe `maintenance.domain` cerraría un ciclo entre los dos dominios. Auth solo transporta esos valores, no tiene reglas sobre ellos |
+| De dónde sale el perfil | `UserMapper` lo lee de `TechnicianEntity` (la asociación `users.technician_id` que ya existe), dentro de la transacción de lectura de `UserRepositoryAdapter` | No hay consulta nueva ni dependencia nueva entre módulos: `auth.persistence` ya importa esa entity. La fuente de verdad sigue siendo el maestro (REQ-18, REQ-21) |
+| Resultado del login | `AuthService.login` devuelve un record de dominio `AuthSession(String token, User user)` en lugar de un `String` | El controller arma `{token, user}` sin volver a consultar la base |
+| `GET /auth/me` | Nuevo `AuthService.currentUser(username)`: busca por el `sub` del token y arma el mismo `UserResponse`. Lee de la base en cada llamada (REQ-20, REQ-21); no usa los claims | El token no lleva el perfil (REQ-23) y puede quedar viejo |
+| Usuario inexistente en `/me` | `UnknownSessionUserException` (dominio), que `RestExceptionHandler` traduce a `401 UNAUTHORIZED` con **el mismo mensaje** que el entry point: `JsonAuthenticationEntryPoint.MESSAGE` pasa a `public` y el advice lo reutiliza | REQ-24. Un mismo texto evita distinguir "token inválido" de "usuario borrado". Lanzar una `AuthenticationException` desde el controller no sirve: el handler genérico de `Exception` la convertiría en `500` |
+| Rol en `/me` | Sale de la base; la autorización (`AccessPolicy`) sigue usando el rol **del token** | Hoy ningún endpoint cambia roles, así que no divergen. Si alguno aparece, habrá que decidir si invalida los tokens (spec de refresh/rotación, §8) |
+| Claims del JWT | Sin cambios: `JwtTokenIssuer` no agrega `specialty` ni `teamType` | REQ-23; solo se suma un test que lo fija |
+| Forma de `/me` | `MeResponse` desaparece y `UserResponse` la reemplaza | Sin consumidores todavía (frontend usa `localStorage`); no se mantiene compatibilidad |
+
+### 10.2 Modelo de datos y migraciones
+
+```sql
+-- V4__users_profile.sql  (db/migration)
+ALTER TABLE users
+    ADD COLUMN display_name VARCHAR(100),
+    ADD COLUMN email        VARCHAR(254);
+
+-- V4_1__seed_users_profile.sql  (db/seed, solo dev)
+UPDATE users SET display_name = 'Administrador', email = 'admin@enterprise-lab.dev' WHERE username = 'admin';
+-- ... y los otros cuatro usuarios, con los valores de db.json (ver tabla)
+
+-- V5__users_profile_required.sql  (db/migration)
+ALTER TABLE users
+    ALTER COLUMN display_name SET NOT NULL,
+    ALTER COLUMN email        SET NOT NULL,
+    ADD CONSTRAINT users_profile_not_blank
+        CHECK (btrim(display_name) <> '' AND btrim(email) <> '');
+```
+
+Mismo problema y misma solución que la spec 01 (§2.2 de su diseño): las columnas nacen nulables para convivir con los usuarios que `V1_1` ya sembró; el seed las completa con `UPDATE` (conserva los `id`, las contraseñas y el vínculo con el técnico) y recién después se vuelven obligatorias.
+
+| Perfil | Migraciones, en orden |
+|---|---|
+| `dev`, base nueva | `V1` → `V1_1` → `V2` → `V2_1` → `V3` → **`V4` → `V4_1` → `V5`** |
+| `dev`, base ya migrada hasta la spec 01 | Pendientes: `V4` → `V4_1` → `V5` |
+| resto de los perfiles | `V1` → `V2` → `V3` → `V4` → `V5` (sin filas) |
+
+- **Numeración:** la spec 01 usa `V2`, `V2_1` y `V3`; esta usa `V4`, `V4_1` y `V5`. La spec 02 (máquinas) debe numerar desde `V6`; si se implementa antes, quien llegue segundo toma los siguientes libres.
+- **Si una base no-dev tuviera usuarios sin perfil, `V5` falla al arrancar** (fail-fast buscado). Hoy no hay forma de crear usuarios sin pasar por el seed.
+- **Sin `UNIQUE` en `email`:** ningún requisito lo pide y no hay endpoint que cree usuarios.
+- **Desvío de REQ-15:** ya dice "las migraciones" (ajustado al aprobar los requisitos).
+
+Datos de prueba (REQ-16), copiados de `db.json`; el `id` **no** coincide con el del frontend, porque sale de la secuencia de Postgres en el orden de `V1_1`:
+
+| `username` | `id` | `displayName` | `email` |
+|---|---|---|---|
+| `admin` | `"1"` | Administrador | `admin@enterprise-lab.dev` |
+| `teamleader` | `"2"` | Team Leader de Mantenimiento | `teamleader@enterprise-lab.dev` |
+| `produccion` | `"3"` | Personal de Producción | `produccion@enterprise-lab.dev` |
+| `tecnico` | `"4"` | Técnico Mecánico de Guardia | `tecnico@enterprise-lab.dev` |
+| `electricista` | `"5"` | Técnico Electricista Preventivo | `electricista@enterprise-lab.dev` |
+
+### 10.3 Componentes afectados
+
+```
+auth/domain/       User (+displayName, email, specialty, teamType y sus invariantes),
+                   AuthSession (nuevo), AuthService (login → AuthSession; currentUser),
+                   UnknownSessionUserException (nueva)
+auth/persistence/  UserEntity (+display_name, email), UserMapper (perfil desde TechnicianEntity)
+auth/web/          LoginResponse {token, user}, UserResponse (nuevo, reemplaza a MeResponse),
+                   AuthController (login y /me)
+auth/security/     JsonAuthenticationEntryPoint (MESSAGE pasa a public); JwtTokenIssuer sin cambios
+shared/web/        RestExceptionHandler (+ handler de UnknownSessionUserException)
+```
+
+- **Invariantes de `User`** (se suman a las de REQ-5 de la spec 00): `displayName` y `email` no nulos ni en blanco; un `tecnico` tiene `specialty` y `teamType`; un no-técnico no los tiene.
+- **`UserResponse(id, username, displayName, email, role, legajo, specialty, teamType)`**, con `@JsonInclude(NON_NULL)`: para un no-técnico los tres últimos se **omiten** (REQ-19), no van en `null`, que es lo que exige `isAuthUser` del frontend. `id` es `String.valueOf(user.id())`.
+- `LoginResponse(String token, UserResponse user)`.
+
+### 10.4 Contrato HTTP
+
+| Método y ruta | Respuesta |
+|---|---|
+| `POST /auth/login` | `200 {"token": "...", "user": {...}}`; 400 y 401 como antes (REQ-8) |
+| `GET /auth/me` | `200` con el mismo `user` que el login, leído de la base; `401` como antes para token ausente o inválido, y también (REQ-24) si el usuario del token ya no existe |
+
+```json
+{ "token": "eyJ...", "user": { "id": "4", "username": "tecnico", "displayName": "Técnico Mecánico de Guardia",
+  "email": "tecnico@enterprise-lab.dev", "role": "tecnico", "legajo": "1001",
+  "specialty": "mecanico", "teamType": "guardia" } }
+```
+
+```json
+{ "id": "1", "username": "admin", "displayName": "Administrador", "email": "admin@enterprise-lab.dev", "role": "administrador" }
+```
+
+### 10.5 Impacto sobre lo ya construido
+
+- **Código:** `LoginResponse`, `MeResponse` (se elimina), `AuthController`, `AuthService`, `User`, `UserMapper`, `UserEntity`, `JsonAuthenticationEntryPoint` (solo visibilidad) y `RestExceptionHandler`.
+- **Tests que cambian:** `MigrationIT` (las columnas esperadas de `users` y, sobre todo, sus tres inserts: sin `display_name` y `email` fallarían por `NOT NULL` y los tests de los `CHECK` pasarían por la razón equivocada), `SeedUsersIT`, `AuthControllerIT`, `UserTest`, `AuthServiceTest` y `JwtTokenIssuerTest` (todos construyen `User` con la firma vieja). `UserRepositoryAdapterIT`, `RoleRestrictionIT` y `OpenApiIT` se revisan. Los ITs de la spec 01 solo leen `LoginResponse.token()`, que sigue existiendo.
+- **Documentación:** README (tabla de usuarios con nombre y correo, ejemplo de `curl` de `/auth/me`) y `CLAUDE.md`.
+
+### 10.6 Estrategia de pruebas
+
+| Requisito | Prueba |
+|---|---|
+| REQ-15 | `MigrationIT`: `users` tiene `display_name` y `email`, ambos `NOT NULL`, y un valor en blanco viola el `CHECK`. `UsersProfileUpgradeIT` (Flyway sin contexto de Spring, base propia): migra hasta `target("3")`, guarda `id`, `password_hash` y `technician_id` de los cinco usuarios, migra al final y verifica que no cambiaron y que el perfil quedó completo |
+| REQ-16 | `SeedUsersIT`: los cinco usuarios con el nombre y el correo de la tabla de §10.2. `UsersProfileUpgradeIT`: migrando solo `db/migration`, `users` queda vacía |
+| REQ-17 | `AuthControllerIT`: login de cada rol devuelve `token` y un `user` con `id` (string), `username`, `displayName`, `email` y `role` |
+| REQ-18 | `AuthControllerIT`: `tecnico` trae `legajo` `1001`, `specialty` `mecanico` y `teamType` `guardia`; `electricista`, `1002`, `electricista` y `preventivo-correctivo` (los datos del maestro de la spec 01) |
+| REQ-19 | `AuthControllerIT`: para `admin`, `teamleader` y `produccion` las claves de `user` son exactamente `id`, `username`, `displayName`, `email` y `role` |
+| REQ-20 | `AuthControllerIT`: `/auth/me` devuelve un objeto igual al `user` del login, para un técnico y para un no-técnico |
+| REQ-21 | `AuthControllerIT`: login como `tecnico`; `PUT /technicians/1001` (con `teamleader`) cambia su `teamType`; `/auth/me` con el **mismo token** devuelve el valor nuevo; el test restaura el dato |
+| REQ-22 | `AuthControllerIT`: ni la respuesta del login ni la de `/me` contienen `password`, `passwordHash` ni un texto que empiece con `$2` |
+| REQ-23 | `JwtTokenIssuerTest`: los claims de un técnico son exactamente `sub`, `role`, `legajo`, `iat` y `exp`. `AuthControllerIT`: el token decodificado del login no tiene `specialty` ni `teamType` |
+| REQ-24 | `AuthControllerIT`: se inserta un usuario, se inicia sesión, se borra la fila y `/auth/me` con ese token responde `401` con el mismo `message` que para un token basura. `AuthServiceTest`: `currentUser` de un usuario inexistente lanza `UnknownSessionUserException` |
+| Invariantes | `UserTest`: las del perfil del técnico y del no-técnico; `displayName` y `email` en blanco |
+
+### 10.7 Puntos que decidí yo y conviene confirmar
+
+1. **`specialty` y `teamType` como `String` en `auth.domain`**, para no cerrar un ciclo con `maintenance.domain` (§10.1). La alternativa es mover `Specialty` y `TeamType` a `shared/domain`, que toca código de la spec 01.
+2. **`V4` + `V4_1` + `V5`**, y `displayName` y `email` no vacíos por `CHECK`, sin `UNIQUE` en `email`.
+3. **Los `id` del seed** quedan `"1"` a `"5"` por orden de inserción (distintos de `db.json`).
+4. **Rol de `/me` desde la base, autorización con el rol del token** (hoy equivalentes).
