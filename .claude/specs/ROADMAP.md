@@ -31,7 +31,7 @@ que hay que sumarlos (se actualiza `structure.md` al aprobar este roadmap).
 
 | Módulo (paquete) | Feature frontend | Tablas | Estado |
 |---|---|---|---|
-| `auth` | `auth`, `core/auth` | `users` | Hecho (spec 00) + enmienda de sesión |
+| `auth` | `auth`, `core/auth` | `users` | Hecho (spec 00 + enmienda 00-A de sesión) |
 | `maintenance` | `maintenance` | `technicians` (se extiende), `teams`, `team_members` | Hecho (spec 01) |
 | `machines` | `machines` | `machines`, `parts` | Pendiente |
 | `workorders` | `work-orders` | `work_orders` | Pendiente |
@@ -44,7 +44,7 @@ que hay que sumarlos (se actualiza `structure.md` al aprobar este roadmap).
 |---|---|---|---|
 | 00 | Proyecto base y seguridad | `auth`, `shared` | — (**hecha**, falta su cierre formal, ver §5) |
 | 01 | Técnicos y equipos | `maintenance` | 00 (**hecha**; falta ver el CI en verde en un PR) |
-| 00-A | Enmienda: contrato de sesión del frontend | `auth` | 00, 01 |
+| 00-A | Enmienda: contrato de sesión del frontend | `auth` | 00, 01 (**hecha**; falta ver el CI en verde en el PR) |
 | 02 | Máquinas y árbol de partes | `machines` | 00 (puede ir en paralelo con 01) |
 | 03 | Órdenes de trabajo: alta, consulta, edición, baja y listado | `workorders` | 00, 02 |
 | 04 | Órdenes de trabajo: tomar, cerrar y liberar | `workorders` | 03, 01, 00-A |
@@ -153,6 +153,9 @@ observabilidad.
 
 ## 5. Brechas detectadas en la spec 00
 
+Las brechas 1 a 4 las resolvió la enmienda 00-A (hecha el 2026-09-30); queda
+pendiente la 5. Se dejan como estaban escritas, para el historial:
+
 1. `LoginResponse` es `{token}`; el frontend espera `{token, user}`, donde
    `user` lleva `id`, `username`, `displayName`, `email`, `role` y, para técnicos,
    `legajo`, `specialty` y `teamType` (sin ellos `isAuthUser` invalida la
@@ -184,14 +187,13 @@ están escritas, salvo objeción al revisar cada `requirements.md`.
 
 1. ~~Actualizar `steering/structure.md` con los módulos `machines` y `dashboard`.~~
    Hecho.
-2. Spec 01 (técnicos y equipos): aprobada e implementada (2026-09-30).
-   `requirements.md` escritos, **pendientes de aprobación**: 02 (máquinas y
-   partes), 03 (órdenes: CRUD y listado), 04 (órdenes: tomar, cerrar y
-   liberar), 05 (dashboard, propuesta mía a validar) y la enmienda 00-A
-   (REQ-15 a REQ-23, al final de `00-proyecto-base-seguridad/requirements.md`).
+2. Spec 01 (técnicos y equipos) y enmienda 00-A (contrato de sesión): aprobadas e
+   implementadas (2026-09-30). `requirements.md` escritos, **pendientes de
+   aprobación**: 02 (máquinas y partes), 03 (órdenes: CRUD y listado), 04
+   (órdenes: tomar, cerrar y liberar) y 05 (dashboard, propuesta mía a validar).
 3. Sin escribir todavía: la spec 06 (operación y producción, opcional) y el cierre
    formal de la spec 00 (recorrer REQ-1 a REQ-14 con evidencia).
 4. Con los requisitos aprobados, seguir con `design.md` y `tasks.md` de cada spec,
-   en el orden de §3 (00-A, 02, 03, 04, 05; la 01 ya está hecha). Numeración de
-   migraciones: la 01 usa `V2`, `V2_1` (seed) y `V3`; las siguientes empiezan en
-   `V4`.
+   en el orden de §3 (02, 03, 04, 05; la 01 y la 00-A ya están hechas). Numeración
+   de migraciones: la 01 usa `V2`, `V2_1` (seed) y `V3`; la 00-A usa `V4`, `V4_1`
+   (seed) y `V5`; las siguientes empiezan en `V6`.

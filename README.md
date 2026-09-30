@@ -40,13 +40,17 @@ decisiones de diseño en `.claude/steering/` y `.claude/specs/`.
 
 Solo existen con el perfil `dev`. Replican los del `db.json` del frontend.
 
-| Usuario        | Contraseña        | Rol                         | Legajo |
-| -------------- | ----------------- | --------------------------- | ------ |
-| `admin`        | `admin123`        | `administrador`             | —      |
-| `teamleader`   | `teamleader123`   | `team-leader-mantenimiento` | —      |
-| `produccion`   | `produccion123`   | `personal-produccion`       | —      |
-| `tecnico`      | `tecnico123`      | `tecnico`                   | 1001   |
-| `electricista` | `electricista123` | `tecnico`                   | 1002   |
+| Usuario        | Contraseña        | Rol                         | Legajo | Nombre visible                  | Correo                           |
+| -------------- | ----------------- | --------------------------- | ------ | ------------------------------- | -------------------------------- |
+| `admin`        | `admin123`        | `administrador`             | —      | Administrador                   | `admin@enterprise-lab.dev`       |
+| `teamleader`   | `teamleader123`   | `team-leader-mantenimiento` | —      | Team Leader de Mantenimiento    | `teamleader@enterprise-lab.dev`  |
+| `produccion`   | `produccion123`   | `personal-produccion`       | —      | Personal de Producción          | `produccion@enterprise-lab.dev`  |
+| `tecnico`      | `tecnico123`      | `tecnico`                   | 1001   | Técnico Mecánico de Guardia     | `tecnico@enterprise-lab.dev`     |
+| `electricista` | `electricista123` | `tecnico`                   | 1002   | Técnico Electricista Preventivo | `electricista@enterprise-lab.dev`|
+
+Si ya tenías la base de la spec 01, al arrancar con `dev` se completan el nombre
+visible y el correo de estos usuarios sobre las mismas filas (conservan su `id`,
+su contraseña y su legajo).
 
 ## Técnicos y equipos de desarrollo (seed)
 
@@ -76,6 +80,20 @@ TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/auth/me
 ```
 
+El login responde `{token, user}` y `GET /auth/me` devuelve ese mismo `user`, leído
+de la base en cada llamada. Para el técnico trae también su `legajo`, `specialty` y
+`teamType` (del maestro de técnicos); para el resto de los roles esas tres claves
+no aparecen:
+
+```json
+{"token": "eyJ...", "user": {"id": "4", "username": "tecnico",
+  "displayName": "Técnico Mecánico de Guardia", "email": "tecnico@enterprise-lab.dev",
+  "role": "tecnico", "legajo": "1001", "specialty": "mecanico", "teamType": "guardia"}}
+```
+
+Los `id` de los usuarios salen de la secuencia de Postgres, así que no coinciden con
+los del `db.json` del frontend.
+
 Para técnicos y equipos, con el usuario que corresponda (`admin` o
 `teamleader` para `/technicians`; solo `teamleader` para `/teams`):
 
@@ -93,8 +111,8 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/teams
 | Endpoint             | Acceso      | Descripción                                   |
 | -------------------- | ----------- | --------------------------------------------- |
 | `GET /actuator/health` | público   | Estado de la aplicación                       |
-| `POST /auth/login`   | público     | Devuelve un JWT (HS256)                       |
-| `GET /auth/me`       | autenticado | `username`, `role` y `legajo` del token       |
+| `POST /auth/login`   | público     | Devuelve `{token, user}` (JWT HS256 y el usuario completo) |
+| `GET /auth/me`       | autenticado | El mismo `user` del login, leído de la base; `401` si el usuario del token ya no existe |
 | `GET /technicians`, `GET /technicians/{legajo}` | administrador, team leader | Consulta de técnicos (por legajo) |
 | `POST /technicians`, `PUT /technicians/{legajo}` | administrador, team leader | Alta y edición (el legajo no se edita) |
 | `DELETE /technicians/{legajo}` | administrador | Baja; `409` si tiene login o es miembro de un equipo |

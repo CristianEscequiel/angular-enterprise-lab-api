@@ -66,6 +66,30 @@ class OpenApiIT extends AbstractPostgresIT {
         assertThat((Map<String, Object>) components.get("securitySchemes")).containsKey("bearerAuth");
     }
 
+    /**
+     * Enmienda 00-A: el contrato de la sesión (REQ-17, REQ-20) está en la documentación generada
+     * desde el código: el login devuelve {@code {token, user}} y {@code /auth/me} el mismo
+     * {@code UserResponse}, sin ningún campo de contraseña (REQ-22).
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void apiDocsDescribeTheSessionContractWithTheUserAndNoPassword() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> schemas =
+                (Map<String, Map<String, Object>>) ((Map<String, Object>) body.get("components")).get("schemas");
+
+        Map<String, Object> loginProperties = (Map<String, Object>) schemas.get("LoginResponse").get("properties");
+        Map<String, Object> userProperties = (Map<String, Object>) schemas.get("UserResponse").get("properties");
+
+        assertThat(loginProperties).containsOnlyKeys("token", "user");
+        assertThat(userProperties).containsOnlyKeys("id", "username", "displayName", "email", "role", "legajo",
+                "specialty", "teamType");
+        assertThat(schemas).doesNotContainKey("MeResponse");
+        // /auth/me responde con el mismo UserResponse que el login.
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+        assertThat(paths.get("/auth/me").toString()).contains("UserResponse");
+    }
+
     @Test
     void swaggerUiIsReachableWithoutToken() {
         ResponseEntity<String> response = restTemplate.getForEntity("/swagger-ui.html", String.class);
