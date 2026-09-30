@@ -68,7 +68,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     matriz coincide con `maintenance.permissions.ts`.
   - _Requisitos: REQ-7, REQ-9, REQ-18, REQ-19, REQ-35_
 
-- [ ] 5. `TechnicianService` y su puerto
+- [x] 5. `TechnicianService` y su puerto
   - Detalle: `TechnicianRepository` (design.md §3) y `TechnicianService` con
     `list`, `get`, `create`, `update` y `delete`, siguiendo el orden de §4.1
     (rol → formato/validación con todos los errores juntos → existencia →
