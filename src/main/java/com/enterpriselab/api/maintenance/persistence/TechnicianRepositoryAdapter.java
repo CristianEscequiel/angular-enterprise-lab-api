@@ -14,6 +14,7 @@ import com.enterpriselab.api.maintenance.domain.Technician;
 import com.enterpriselab.api.maintenance.domain.TechnicianRepository;
 import com.enterpriselab.api.shared.domain.ConflictException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
+import com.enterpriselab.api.shared.persistence.ConstraintViolations;
 
 /**
  * Adaptador JPA del puerto {@link TechnicianRepository}. Las verificaciones del

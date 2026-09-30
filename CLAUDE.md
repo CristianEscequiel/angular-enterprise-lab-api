@@ -70,12 +70,24 @@ aprobación, aunque el pedido parezca claro.
   existe); el perfil del técnico (`specialty`, `teamType`) sale del maestro, no
   del token; migraciones `V4`/`V5` con el seed `V4_1` (solo `dev`). Pendiente:
   que el workflow de CI termine en verde en el PR.
-- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (02 máquinas
-  y partes, 03 y 04 órdenes, 05 dashboard, 06 operación). Contrato de API
-  decidido: REST limpio en inglés. Los `requirements.md` se escriben de a una
-  spec, con aprobación entre cada una. **La spec 02 debe numerar sus
-  migraciones desde `V6`** (la 01 usa `V2`, `V2_1` y `V3`; la 00-A usa `V4`,
-  `V4_1` y `V5`). Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
+- Spec 02 (máquinas y árbol de partes, módulo `machines`): `requirements.md`
+  (REQ-1 a REQ-37), `design.md` y `tasks.md` aprobados (2026-09-30). Las 11
+  tareas están implementadas y marcadas; `./gradlew test` pasa (589 tests) y el
+  recorrido de REQ-1 a REQ-37 con su evidencia está al final de `tasks.md`.
+  Implementado: `/machines` (con `partCount`) y las partes como lista plana con
+  `parentId` (`GET`/`POST /machines/{machineId}/parts`, `PATCH`/`DELETE
+  /parts/{id}`); lectura para los cuatro roles, escritura para administrador y
+  team leader; orden de errores `401 → 403 → 400 formato → 404 → 400 referencia
+  (padre) → 409`; FK compuesta que impide un padre de otra máquina; migración
+  `V6` con el seed `V6_1` (solo `dev`, ids de `db.json`). `ConstraintViolations`
+  pasó a `shared/persistence`. Pendiente: que el workflow de CI termine en verde
+  en un PR.
+- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (03 y 04
+  órdenes, 05 dashboard, 06 operación). Contrato de API decidido: REST limpio en
+  inglés. Los `requirements.md` se escriben de a una spec, con aprobación entre
+  cada una. **La spec 03 debe numerar sus migraciones desde `V7`** (la 01 usa
+  `V2`, `V2_1` y `V3`; la 00-A usa `V4`, `V4_1` y `V5`; la 02 usa `V6` y `V6_1`).
+  Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
 - Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 
 ## Testing

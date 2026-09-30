@@ -70,6 +70,29 @@ completan `1001` y `1002` sobre las mismas filas (los usuarios `tecnico` y
 | Guardia mecánica      | `guardia`               | 1001     |
 | Preventivo eléctrico  | `preventivo-correctivo` | 1002     |
 
+## Máquinas y partes de desarrollo (seed)
+
+También solo con el perfil `dev`, con los mismos ids que el `db.json` del frontend
+(las órdenes de prueba de la spec 03 los referencian). Los ids nuevos siguen
+después del mayor: la próxima máquina es la `4` y la próxima parte, la `11`.
+
+| Id | Código   | Nombre              | Partes |
+| -- | -------- | ------------------- | ------ |
+| 1  | `ENV-01` | Envasadora línea 1  | 7      |
+| 2  | `SEL-02` | Selladora           | 3      |
+| 3  | `ROT-03` | Rotuladora          | 0      |
+
+Árbol de partes (el número es el id):
+
+```
+ENV-01  1 Mesa de transporte
+          ├─ 2 Cinta 1 ── 3 Motor de cinta ── 4 Rodamiento delantero
+          └─ 5 Cinta 2
+        6 Cabezal de sellado ── 7 Resistencia
+SEL-02  8 Cabezal térmico ── 9 Resistencia
+        10 Mordaza
+```
+
 ## Probar el login
 
 ```bash
@@ -106,6 +129,23 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/technicians
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/teams
 ```
 
+Máquinas y partes: cualquier usuario autenticado puede leer; escribir requiere
+`admin` o `teamleader`. Las partes de una máquina se piden y se crean por su
+máquina, y se editan y eliminan por su id:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/machines
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/machines/1/parts
+
+curl -X POST http://localhost:8080/machines/1/parts \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Tensor","parentId":"1"}'
+
+curl -X PATCH http://localhost:8080/parts/11 \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Tensor de cinta"}'
+```
+
 ## Endpoints
 
 | Endpoint             | Acceso      | Descripción                                   |
@@ -117,6 +157,13 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/teams
 | `POST /technicians`, `PUT /technicians/{legajo}` | administrador, team leader | Alta y edición (el legajo no se edita) |
 | `DELETE /technicians/{legajo}` | administrador | Baja; `409` si tiene login o es miembro de un equipo |
 | `GET`, `POST /teams`, `GET`, `PUT`, `DELETE /teams/{id}` | team leader | Equipos y sus miembros (por legajo) |
+| `GET /machines`, `GET /machines/{id}` | autenticado | Consulta de máquinas, con `partCount` |
+| `POST /machines`, `PUT /machines/{id}` | administrador, team leader | Alta y edición; el `code` se guarda recortado y en mayúsculas; `409 DUPLICATE_MACHINE_CODE` si ya existe |
+| `DELETE /machines/{id}` | administrador, team leader | Baja; `409 MACHINE_HAS_PARTS` si tiene partes |
+| `GET /machines/{machineId}/parts` | autenticado | Partes de la máquina como lista plana con `parentId`, en orden de creación |
+| `POST /machines/{machineId}/parts` | administrador, team leader | Alta de una parte de primer nivel o sub-parte; `400 PARENT_PART_NOT_FOUND` / `PARENT_PART_OTHER_MACHINE` |
+| `PATCH /parts/{id}` | administrador, team leader | Cambia solo el nombre; `400` si se intenta mover (`machineId` o `parentId` distintos) |
+| `DELETE /parts/{id}` | administrador, team leader | Baja; `409 PART_HAS_CHILDREN` si tiene sub-partes |
 | `/swagger-ui.html`, `/v3/api-docs/**` | público | Documentación OpenAPI          |
 
 Los errores controlados responden siempre `{code, message, timestamp, path}`.
