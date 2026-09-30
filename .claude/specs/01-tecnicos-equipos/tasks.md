@@ -148,7 +148,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     `findNamesByMemberLegajo`.
   - _Requisitos: REQ-16, REQ-29, REQ-30, REQ-31, REQ-33, REQ-36_
 
-- [ ] 9. `TechnicianController`
+- [x] 9. `TechnicianController`
   - Detalle: `TechnicianRequest`, `TechnicianResponse` (con `id` como string y
     `from(Technician)`), y `TechnicianController` en `/technicians` con los cinco
     endpoints de design.md §5: `201` con `Location` en el alta, `204` en la baja.
