@@ -318,7 +318,7 @@ que siempre: toda tarea deja `./gradlew test` en verde; las IT comparten un
     `{code,message,timestamp,path}`.
   - _Requisitos: REQ-24_
 
-- [ ] 28. `{token, user}` en el login y `GET /auth/me` completo
+- [x] 28. `{token, user}` en el login y `GET /auth/me` completo
   - Detalle: `UserResponse(id, username, displayName, email, role, legajo,
     specialty, teamType)` con `@JsonInclude(NON_NULL)` (los tres últimos se
     omiten en un no-técnico) e `id` como string; `LoginResponse(token, user)`;
