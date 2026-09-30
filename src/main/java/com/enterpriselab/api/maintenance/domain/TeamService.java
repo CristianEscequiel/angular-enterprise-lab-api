@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
+
 import com.enterpriselab.api.auth.domain.Role;
 import com.enterpriselab.api.shared.domain.InvalidReferenceException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
@@ -19,10 +21,8 @@ import com.enterpriselab.api.shared.domain.ValidationFailedException;
  * (todos los errores juntos) → existencia del equipo → existencia de los
  * técnicos referenciados. {@code create} y {@code update} comparten el mismo
  * validador de {@code memberLegajos} (REQ-26, REQ-27, REQ-28 y REQ-31).
- *
- * <p>Sin {@code @Service} hasta la tarea 8, por la misma razón que
- * {@link TechnicianService}.
  */
+@Service
 public class TeamService {
 
     static final int MAX_NAME_LENGTH = 100;

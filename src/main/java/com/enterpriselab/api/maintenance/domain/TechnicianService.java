@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
+
 import com.enterpriselab.api.auth.domain.Role;
 import com.enterpriselab.api.shared.domain.ConflictException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
@@ -18,12 +20,8 @@ import com.enterpriselab.api.shared.domain.ValidationFailedException;
  * (todos los errores juntos) → existencia → integridad. La autorización va
  * primero para que un rol sin permiso reciba {@code 403} aunque mande datos
  * inválidos.
- *
- * <p>Todavía sin {@code @Service}: necesita los adaptadores de
- * {@link TechnicianRepository} y {@link TeamRepository} (tareas 7 y 8), y
- * registrado como bean sin ellos el contexto de Spring no arranca. Se
- * anota en la tarea 8, cuando ya existen los dos.
  */
+@Service
 public class TechnicianService {
 
     static final int MAX_NAME_LENGTH = 100;

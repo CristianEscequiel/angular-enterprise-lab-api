@@ -127,7 +127,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     siguen en verde con la entity movida.
   - _Requisitos: REQ-5, REQ-6, REQ-15, REQ-16, REQ-36_
 
-- [ ] 8. Persistencia de equipos
+- [x] 8. Persistencia de equipos
   - Detalle: `TeamEntity` sin colección, `TeamMemberEntity` suelta,
     `TeamJpaRepository` y `TeamMemberJpaRepository` (`deleteByTeamId` con
     `@Modifying(flushAutomatically = true, clearAutomatically = true)` y el
