@@ -53,7 +53,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     cuatro roles.
   - _Requisitos: REQ-6, REQ-7, REQ-27 (contrato de errores); habilita el resto_
 
-- [ ] 4. Tipos de dominio y matriz de permisos
+- [x] 4. Tipos de dominio y matriz de permisos
   - Detalle: en `maintenance/domain`, `Specialty` y `TeamType` (con
     `toValue`/`fromValue`, mismo patrón que `Role`), `Legajo` (`isValid` con
     `matches("[0-9]{1,8}")` y `require`, que lanza `ValidationFailedException`
