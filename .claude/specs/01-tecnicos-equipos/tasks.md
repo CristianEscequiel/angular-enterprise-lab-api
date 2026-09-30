@@ -188,7 +188,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     operaciones.
   - _Requisitos: REQ-20 a REQ-35, REQ-40, REQ-41, REQ-39_
 
-- [ ] 11. Documentación OpenAPI de `/technicians` y `/teams`
+- [x] 11. Documentación OpenAPI de `/technicians` y `/teams`
   - Detalle: sin código nuevo si las tareas 9 y 10 anotaron bien; esta tarea
     ajusta lo que falte.
   - Depende de: 9, 10
