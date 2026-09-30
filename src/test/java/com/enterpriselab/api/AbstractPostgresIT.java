@@ -19,8 +19,17 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * exactamente lo que este patrón evita. {@code @ServiceConnection} no
  * depende de esas anotaciones — Spring Boot detecta el campo estático
  * anotado y configura el {@code DataSource} de test contra el contenedor.
+ *
+ * <p>Flyway siempre corre con {@code db/seed} incluido, con o sin perfil
+ * {@code dev}: como la base se comparte entre contextos de distinto perfil, si
+ * uno migrara solo {@code db/migration} y otro también el seed, el segundo vería
+ * {@code V1_1} y {@code V2_1} como migraciones intermedias faltantes (hay
+ * {@code V2} y {@code V3} aplicadas por encima) y {@code validate} fallaría.
+ * Que el seed no se cargue fuera de {@code dev} se verifica en
+ * {@code MaintenanceUpgradeIT}, con una base propia.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "spring.flyway.locations=classpath:db/migration,classpath:db/seed")
 public abstract class AbstractPostgresIT {
 
     @ServiceConnection
