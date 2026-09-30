@@ -306,7 +306,7 @@ que siempre: toda tarea deja `./gradlew test` en verde; las IT comparten un
     `UnknownSessionUserException`. `AuthControllerIT` actual sigue en verde.
   - _Requisitos: REQ-17, REQ-20, REQ-21, REQ-24_
 
-- [ ] 27. `401` para un usuario inexistente en `/auth/me`
+- [x] 27. `401` para un usuario inexistente en `/auth/me`
   - Detalle: `JsonAuthenticationEntryPoint.MESSAGE` pasa a `public`;
     `RestExceptionHandler` traduce `UnknownSessionUserException` a
     `401 UNAUTHORIZED` con ese mismo mensaje (design.md §10.1).

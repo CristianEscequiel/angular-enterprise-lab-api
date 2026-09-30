@@ -7,6 +7,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.enterpriselab.api.auth.security.JsonAuthenticationEntryPoint;
+
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -67,6 +69,19 @@ class RestExceptionHandlerTest {
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.path").value("/test/invalid-reference"))
                 .andExpect(jsonPath("$.details").doesNotExist());
+    }
+
+    /** REQ-24: mismo código y mismo mensaje que el entry point para un token inválido; no filtra el username. */
+    @Test
+    void anUnknownSessionUserRespondsUnauthorizedWithTheInvalidTokenMessage() throws Exception {
+        mockMvc.perform(get("/test/unknown-session-user"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value(JsonAuthenticationEntryPoint.MESSAGE))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/test/unknown-session-user"))
+                .andExpect(jsonPath("$.details").doesNotExist())
+                .andExpect(content().string(not(containsString("ghost"))));
     }
 
     @Test
