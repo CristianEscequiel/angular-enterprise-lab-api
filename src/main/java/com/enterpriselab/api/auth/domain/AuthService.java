@@ -28,7 +28,8 @@ public class AuthService {
         this.dummyHash = passwordEncoder.encode("dummy-password-for-timing");
     }
 
-    public String login(String username, String password) {
+    /** REQ-17: el token y el usuario completo, con el perfil leído en este momento. */
+    public AuthSession login(String username, String password) {
         User user = userRepository.findByUsername(username).orElse(null);
 
         String hashToCheck = user != null ? user.passwordHash() : dummyHash;
@@ -37,6 +38,16 @@ public class AuthService {
         if (user == null || !passwordMatches) {
             throw new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE);
         }
-        return tokenIssuer.issueToken(user);
+        return new AuthSession(tokenIssuer.issueToken(user), user);
+    }
+
+    /**
+     * REQ-20, REQ-21, REQ-24: el usuario de un token ya validado, leído de la base en
+     * cada llamada (no de los claims: el perfil del técnico puede cambiar). Si el
+     * usuario ya no existe, lanza {@link UnknownSessionUserException}.
+     */
+    public User currentUser(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UnknownSessionUserException("El usuario del token ya no existe"));
     }
 }

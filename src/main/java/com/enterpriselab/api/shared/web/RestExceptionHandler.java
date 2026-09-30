@@ -18,6 +18,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.enterpriselab.api.auth.domain.ForbiddenOperationException;
 import com.enterpriselab.api.auth.domain.InvalidCredentialsException;
+import com.enterpriselab.api.auth.domain.UnknownSessionUserException;
+import com.enterpriselab.api.auth.security.JsonAuthenticationEntryPoint;
 import com.enterpriselab.api.shared.domain.ConflictException;
 import com.enterpriselab.api.shared.domain.InvalidReferenceException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
@@ -96,6 +98,18 @@ public class RestExceptionHandler {
     public ResponseEntity<ApiError> handleInvalidCredentials(InvalidCredentialsException exception,
             HttpServletRequest request) {
         ApiError body = ApiError.of("INVALID_CREDENTIALS", exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    /**
+     * REQ-24: token válido de un usuario que ya no existe. Mismo código y mismo
+     * mensaje que el entry point para un token inválido; no se usa el mensaje de
+     * la excepción para no revelar que el usuario existió.
+     */
+    @ExceptionHandler(UnknownSessionUserException.class)
+    public ResponseEntity<ApiError> handleUnknownSessionUser(UnknownSessionUserException exception,
+            HttpServletRequest request) {
+        ApiError body = ApiError.of("UNAUTHORIZED", JsonAuthenticationEntryPoint.MESSAGE, request.getRequestURI());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }
 

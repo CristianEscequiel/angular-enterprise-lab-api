@@ -236,5 +236,168 @@
     se dispara y termina en verde.
   - _Requisitos: fuera del alcance de `requirements.md`, tomado de `tech.md`_
 
+## Enmienda 00-A — contrato de sesión del frontend (REQ-15 a REQ-24)
+
+Las tareas 1 a 22 siguen como están. Estas se suman a continuación, sobre
+`requirements.md` (enmienda 00-A) y `design.md` §10. **Depende de la spec 01
+implementada** (el perfil del técnico sale de las columnas que ella agrega a
+`technicians`): se parte de una rama que ya la incluya. Entorno y reglas igual
+que siempre: toda tarea deja `./gradlew test` en verde; las IT comparten un
+único Postgres, así que cada test usa datos propios y los limpia.
+
+- [x] 23. Migraciones `V4`, `V4_1` (seed dev) y `V5`, y ajuste de `MigrationIT` y `SeedUsersIT`
+  - Detalle: `db/migration/V4__users_profile.sql` (`display_name` y `email`
+    nulables), `db/seed/V4_1__seed_users_profile.sql` (`UPDATE` de los cinco
+    usuarios con los valores de la tabla de design.md §10.2) y
+    `db/migration/V5__users_profile_required.sql` (`NOT NULL` y el `CHECK`
+    `users_profile_not_blank`). Van juntas porque `V5` fallaría en `dev` sin el
+    seed en el medio. Se actualiza `MigrationIT`: las columnas esperadas de
+    `users` y sus tres `insert into users`, que pasan a llevar `display_name` y
+    `email` para que los tests de los `CHECK` fallen por el `CHECK` y no por el
+    `NOT NULL`. `SeedUsersIT` se amplía con el perfil.
+  - Depende de: spec 01 implementada
+  - Verificación: `MigrationIT` — `users` tiene `display_name` y `email`, ambos
+    `NOT NULL`; un valor nulo o en blanco en cualquiera de los dos viola la
+    constraint; los tests de `role` y `technician_id` de la spec 00 siguen
+    fallando por su propio `CHECK`. `SeedUsersIT` — los cinco usuarios con el
+    nombre y el correo de `db.json`.
+  - _Requisitos: REQ-15, REQ-16_
+
+- [x] 24. Prueba de migración sobre una base ya sembrada (`UsersProfileUpgradeIT`)
+  - Detalle: JUnit sin contexto de Spring, en el paquete `com.enterpriselab.api`
+    y con el contenedor de `AbstractPostgresIT` (mismo patrón que
+    `MaintenanceUpgradeIT`): una base vacía por test y la API de Flyway.
+  - Depende de: 23
+  - Verificación: migrar con `target("3")` (el estado de quien ya tiene la
+    spec 01), guardar `id`, `password_hash`, `role` y `technician_id` de los
+    cinco usuarios, migrar hasta el final: nada de eso cambia y `display_name` y
+    `email` quedaron completos. Segundo test: migrar solo `db/migration` deja
+    `users` vacía (el seed no se carga fuera de `dev`).
+  - _Requisitos: REQ-15, REQ-16_
+
+- [x] 25. `User` con perfil completo, `UserEntity` y `UserMapper`
+  - Detalle: `User` suma `displayName`, `email`, `specialty` y `teamType`
+    (`String`, design.md §10.1) con las invariantes de §10.3: `displayName` y
+    `email` no nulos ni en blanco; un `tecnico` tiene `specialty` y `teamType`;
+    un no-técnico no los tiene (se suman a las de REQ-5). `UserEntity` mapea
+    `display_name` y `email`; `UserMapper` toma `specialty` y `teamType` de
+    `TechnicianEntity`. Se adaptan los tests que construyen `User` con la firma
+    vieja (`AuthServiceTest`, `JwtTokenIssuerTest`, `UserTest`).
+  - Depende de: 23
+  - Verificación: `UserTest` — las invariantes nuevas y las de REQ-5.
+    `UserRepositoryAdapterIT` — `tecnico` trae `1001`, `mecanico` y `guardia`,
+    `electricista` trae `1002`, `electricista` y `preventivo-correctivo`,
+    `admin` no trae perfil de técnico, y todos traen nombre y correo.
+    `JwtTokenIssuerTest` — los claims de un técnico son exactamente `sub`,
+    `role`, `legajo`, `iat` y `exp` (sin `specialty` ni `teamType`).
+  - _Requisitos: REQ-15, REQ-18, REQ-19, REQ-23_
+
+- [x] 26. `AuthService`: `AuthSession` y `currentUser`
+  - Detalle: `AuthSession(String token, User user)` (dominio);
+    `AuthService.login` devuelve `AuthSession` en lugar de un `String`;
+    `AuthService.currentUser(username)` busca por el `sub` del token y lanza
+    `UnknownSessionUserException` si el usuario no existe. `AuthController` se
+    adapta al mínimo (usa `session.token()`): el cuerpo de la respuesta no
+    cambia hasta la tarea 28.
+  - Depende de: 25
+  - Verificación: `AuthServiceTest` — `login` devuelve el token y el usuario
+    completo; credenciales inválidas siguen dando el mismo error que antes;
+    `currentUser` devuelve el usuario y, para un username inexistente, lanza
+    `UnknownSessionUserException`. `AuthControllerIT` actual sigue en verde.
+  - _Requisitos: REQ-17, REQ-20, REQ-21, REQ-24_
+
+- [x] 27. `401` para un usuario inexistente en `/auth/me`
+  - Detalle: `JsonAuthenticationEntryPoint.MESSAGE` pasa a `public`;
+    `RestExceptionHandler` traduce `UnknownSessionUserException` a
+    `401 UNAUTHORIZED` con ese mismo mensaje (design.md §10.1).
+  - Depende de: 26
+  - Verificación: `RestExceptionHandlerTest` (con un endpoint de
+    `TestExceptionsController` que lanza la excepción) — `401`, `code`
+    `UNAUTHORIZED`, el `message` es idéntico a
+    `JsonAuthenticationEntryPoint.MESSAGE` y la forma es
+    `{code,message,timestamp,path}`.
+  - _Requisitos: REQ-24_
+
+- [x] 28. `{token, user}` en el login y `GET /auth/me` completo
+  - Detalle: `UserResponse(id, username, displayName, email, role, legajo,
+    specialty, teamType)` con `@JsonInclude(NON_NULL)` (los tres últimos se
+    omiten en un no-técnico) e `id` como string; `LoginResponse(token, user)`;
+    `AuthController` arma `user` desde `AuthSession` y `/auth/me` llama a
+    `AuthService.currentUser` con el `sub` del token. Se elimina `MeResponse`.
+  - Depende de: 26, 27
+  - Verificación: `AuthControllerIT` reescrito — login de cada rol devuelve
+    `{token, user}` con `id` (string), `username`, `displayName`, `email` y
+    `role`; `tecnico` y `electricista` traen su `legajo`, `specialty` y
+    `teamType` del maestro; `admin`, `teamleader` y `produccion` tienen
+    exactamente esas cinco claves (sin `legajo`, `specialty` ni `teamType`);
+    `/auth/me` devuelve un objeto igual al `user` del login; login como
+    `tecnico`, `PUT /technicians/1001` con `teamleader` para cambiar su
+    `teamType` y `/auth/me` con el **mismo token** devuelve el valor nuevo (el
+    test restaura el dato); ni el login ni `/auth/me` contienen `password`,
+    `passwordHash` ni un texto que empiece con `$2`; el token decodificado no
+    tiene `specialty` ni `teamType`; un usuario insertado, con sesión iniciada y
+    luego borrado, recibe `401` con el mismo `message` que un token basura en
+    `/auth/me`; los casos de la spec 00 (credenciales inválidas, sin token,
+    token inválido) siguen igual. `RoleRestrictionIT` sigue en verde.
+  - _Requisitos: REQ-17, REQ-18, REQ-19, REQ-20, REQ-21, REQ-22, REQ-23, REQ-24_
+
+- [x] 29. Cierre: OpenAPI, documentación y verificación completa
+  - Detalle: `OpenApiIT` verifica que `/v3/api-docs` describa `LoginResponse`
+    con la propiedad `user`. El README suma nombre y correo a la tabla de
+    usuarios y un ejemplo de `curl` de `/auth/me` con el usuario completo;
+    `CLAUDE.md` actualiza "Estado actual" (enmienda 00-A implementada; la spec 02
+    numera sus migraciones desde `V6`); `ROADMAP.md` marca la 00-A como hecha.
+    Recorrido de REQ-15 a REQ-24 con su evidencia, al final de esta sección.
+  - Depende de: 23 a 28
+  - Verificación: `./gradlew test` completo en verde; manual — con
+    `docker compose up -d` y el perfil `dev`, `POST /auth/login` como `tecnico`
+    devuelve `user` con el perfil y `GET /auth/me` con ese token lo repite; el
+    workflow de CI termina en verde en el PR.
+  - _Requisitos: todos los de la enmienda_
+
+### Trazabilidad de la enmienda
+
+| REQ | Tareas |
+|---|---|
+| 15 | 23, 24, 25 |
+| 16 | 23, 24 |
+| 17 | 26, 28 |
+| 18 | 25, 28 |
+| 19 | 25, 28 |
+| 20 | 26, 28 |
+| 21 | 26, 28 |
+| 22 | 28 |
+| 23 | 25, 28 |
+| 24 | 26, 27, 28 |
+
+### Cierre de la enmienda: recorrido de REQ-15 a REQ-24 (2026-09-30)
+
+Evidencia: `./gradlew test` en verde (todas las clases citadas corren sin fallas
+ni saltos) y una verificación manual contra la API levantada con el perfil `dev`
+sobre una base descartable (`curl` con `tecnico` y `admin`).
+Siglas: **ACIT** = `AuthControllerIT`, **UPUIT** = `UsersProfileUpgradeIT`,
+**URAIT** = `UserRepositoryAdapterIT`, **ASTest** = `AuthServiceTest`.
+
+| REQ | Evidencia |
+|---|---|
+| 15 | `MigrationIT` (`display_name` y `email` `NOT NULL`, nulo o en blanco violan la constraint); UPUIT: migrar desde el estado de la spec 01 conserva `id`, contraseña, rol y vínculo con el técnico y completa el perfil; `UserTest` (nombre y correo obligatorios) |
+| 16 | `SeedUsersIT` (los cinco usuarios con nombre y correo de `db.json`); UPUIT: sin el seed `users` queda vacía; URAIT; manual: la base descartable tiene los cinco con su perfil |
+| 17 | ACIT: login de los cinco usuarios → `{token, user}` con `id` (string), `username`, `displayName`, `email` y `role`; ASTest: `login` devuelve `AuthSession`; manual: `POST /auth/login` |
+| 18 | ACIT: `tecnico` trae `1001`, `mecanico` y `guardia`, `electricista` trae `1002`, `electricista` y `preventivo-correctivo`; URAIT y `UserTest`; manual: `tecnico` |
+| 19 | ACIT: `admin`, `teamleader` y `produccion` tienen exactamente `id`, `username`, `displayName`, `email` y `role`; `UserTest`; manual: `admin` |
+| 20 | ACIT: `/auth/me` devuelve un objeto igual al `user` del login, para un técnico y para un administrador; `OpenApiIT`: `/auth/me` responde `UserResponse`; manual: `/auth/me` |
+| 21 | ACIT: cambiar el `teamType` de `1001` con `PUT /technicians/1001` se refleja en `/auth/me` con el **mismo token**, y al restaurarlo vuelve; ASTest: `currentUser` lee el repositorio en cada llamada |
+| 22 | ACIT: ni el login ni `/auth/me` contienen `password`, `$2` ni la contraseña en claro; `OpenApiIT`: `UserResponse` no tiene campo de contraseña; manual: sin coincidencias de `password` ni de hash |
+| 23 | `JwtTokenIssuerTest` y ACIT: los claims de un técnico son exactamente `sub`, `role`, `legajo`, `iat` y `exp`, sin `specialty` ni `teamType`; manual: el token decodificado |
+| 24 | ACIT: un usuario insertado, con sesión iniciada y luego borrado, recibe `401` con el mismo `message` que un token basura y sin nombrarlo; ASTest: `currentUser` de un inexistente lanza `UnknownSessionUserException`; `RestExceptionHandlerTest`: `401 UNAUTHORIZED` con `JsonAuthenticationEntryPoint.MESSAGE` |
+
+**Nota de la verificación manual:** el puerto 8080 estaba ocupado por otro proceso
+`java.exe` ajeno a esta sesión, así que la instancia de prueba se levantó en el
+8081.
+
+**Pendiente, fuera de esta sesión:** que el workflow de
+`.github/workflows/ci.yml` termine en verde en el PR de la enmienda.
+
 ---
-**Estado:** Aprobado — 2026-09-29
+**Estado:** Aprobado — 2026-09-29 (tareas 1 a 22). Enmienda 00-A (tareas 23 a 29):
+requisitos, diseño y tareas aprobados el 2026-09-30; implementada el mismo día.

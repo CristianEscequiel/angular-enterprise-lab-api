@@ -35,15 +35,57 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(userRepository, passwordEncoder, tokenIssuer);
-        admin = new User(1L, "admin", passwordEncoder.encode("secret"), Role.ADMINISTRADOR, null);
+        admin = new User(1L, "admin", passwordEncoder.encode("secret"), "Administrador",
+                "admin@enterprise-lab.dev", Role.ADMINISTRADOR, null, null, null);
     }
 
     @Test
-    void returnsATokenForValidCredentials() {
+    void returnsTheTokenAndTheFullUserForValidCredentials() {
         when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
         when(tokenIssuer.issueToken(admin)).thenReturn("jwt-token");
 
-        assertThat(authService.login("admin", "secret")).isEqualTo("jwt-token");
+        AuthSession session = authService.login("admin", "secret");
+
+        assertThat(session.token()).isEqualTo("jwt-token");
+        assertThat(session.user()).isEqualTo(admin);
+    }
+
+    @Test
+    void aTecnicoSessionCarriesItsProfile() {
+        User tecnico = new User(4L, "tecnico", passwordEncoder.encode("secret"), "Técnico Mecánico de Guardia",
+                "tecnico@enterprise-lab.dev", Role.TECNICO, "1001", "mecanico", "guardia");
+        when(userRepository.findByUsername("tecnico")).thenReturn(Optional.of(tecnico));
+        when(tokenIssuer.issueToken(tecnico)).thenReturn("jwt-token");
+
+        AuthSession session = authService.login("tecnico", "secret");
+
+        assertThat(session.user().legajo()).isEqualTo("1001");
+        assertThat(session.user().specialty()).isEqualTo("mecanico");
+        assertThat(session.user().teamType()).isEqualTo("guardia");
+    }
+
+    /** REQ-20, REQ-21: el usuario actual sale de la base en cada llamada, no de una copia. */
+    @Test
+    void currentUserReadsTheRepositoryOnEveryCall() {
+        User before = new User(4L, "tecnico", "hash", "Técnico", "t@test.dev", Role.TECNICO, "1001",
+                "mecanico", "guardia");
+        User after = new User(4L, "tecnico", "hash", "Técnico", "t@test.dev", Role.TECNICO, "1001",
+                "mecanico", "preventivo-correctivo");
+        when(userRepository.findByUsername("tecnico")).thenReturn(Optional.of(before))
+                .thenReturn(Optional.of(after));
+
+        assertThat(authService.currentUser("tecnico").teamType()).isEqualTo("guardia");
+        assertThat(authService.currentUser("tecnico").teamType()).isEqualTo("preventivo-correctivo");
+    }
+
+    /** REQ-24: un token válido de un usuario que ya no existe. */
+    @Test
+    void currentUserOfAnUnknownUsernameIsRejected() {
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.currentUser("ghost"))
+                .isInstanceOf(UnknownSessionUserException.class);
+        verifyNoInteractions(tokenIssuer);
     }
 
     @Test

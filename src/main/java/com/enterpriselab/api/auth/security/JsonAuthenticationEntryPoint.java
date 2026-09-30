@@ -19,11 +19,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * {@code @RestControllerAdvice}, así que este entry point escribe el mismo
  * {@link ApiError}. El mensaje es siempre el mismo: no distingue token
  * ausente, expirado, mal firmado o malformado.
+ *
+ * <p>{@link #MESSAGE} es público porque {@code RestExceptionHandler} lo
+ * reutiliza para el caso de un token válido cuyo usuario ya no existe
+ * (REQ-24): mismo texto, así no se distingue "token inválido" de "usuario
+ * borrado".
  */
 @Component
 public class JsonAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
-    static final String MESSAGE = "Autenticación requerida o token inválido";
+    public static final String MESSAGE = "Autenticación requerida o token inválido";
 
     private final ObjectMapper objectMapper;
 

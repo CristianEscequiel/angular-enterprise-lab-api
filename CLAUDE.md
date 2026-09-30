@@ -61,13 +61,21 @@ aprobación, aunque el pedido parezca claro.
   migraciones `V2`/`V3` con el seed `V2_1` (solo `dev`) y las excepciones
   genéricas de `shared/domain`. Pendiente: que el workflow de CI termine en
   verde en un PR.
-- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (00-A
-  enmienda de sesión, ya sin bloqueo; 02 máquinas y partes, 03 y 04 órdenes,
-  05 dashboard, 06 operación). Contrato de API decidido: REST limpio en inglés.
-  Los `requirements.md` se escriben de a una spec, con aprobación entre cada
-  una. La spec 02 debe numerar sus migraciones desde `V4` (la 01 usa `V2`,
-  `V2_1` y `V3`). Pendiente de la spec 00: cierre formal (REQ-1 a REQ-14) y la
-  enmienda del contrato de sesión (`{token, user}`).
+- Enmienda 00-A de la spec 00 (contrato de sesión del frontend): REQ-15 a
+  REQ-24, diseño (`design.md` §10) y tareas 23 a 29 aprobados (2026-09-30), todas
+  implementadas y marcadas; `./gradlew test` pasa y el recorrido de REQ-15 a
+  REQ-24 con su evidencia está al final de `tasks.md` de la spec 00.
+  Implementado: `POST /auth/login` devuelve `{token, user}`; `GET /auth/me`
+  devuelve el mismo `user` leído de la base (`401` si el usuario del token ya no
+  existe); el perfil del técnico (`specialty`, `teamType`) sale del maestro, no
+  del token; migraciones `V4`/`V5` con el seed `V4_1` (solo `dev`). Pendiente:
+  que el workflow de CI termine en verde en el PR.
+- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (02 máquinas
+  y partes, 03 y 04 órdenes, 05 dashboard, 06 operación). Contrato de API
+  decidido: REST limpio en inglés. Los `requirements.md` se escriben de a una
+  spec, con aprobación entre cada una. **La spec 02 debe numerar sus
+  migraciones desde `V6`** (la 01 usa `V2`, `V2_1` y `V3`; la 00-A usa `V4`,
+  `V4_1` y `V5`). Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
 - Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 
 ## Testing

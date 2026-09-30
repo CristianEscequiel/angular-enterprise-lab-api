@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.enterpriselab.api.auth.domain.UnknownSessionUserException;
 import com.enterpriselab.api.shared.domain.ConflictException;
 import com.enterpriselab.api.shared.domain.InvalidReferenceException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
@@ -40,6 +41,11 @@ class TestExceptionsController {
     @GetMapping("/test/invalid-reference")
     void invalidReference() {
         throw new InvalidReferenceException("UNKNOWN_TECHNICIAN", "No existe el técnico con legajo 9999");
+    }
+
+    @GetMapping("/test/unknown-session-user")
+    void unknownSessionUser() {
+        throw new UnknownSessionUserException("El usuario del token ya no existe: ghost");
     }
 
     @GetMapping("/test/not-found")
