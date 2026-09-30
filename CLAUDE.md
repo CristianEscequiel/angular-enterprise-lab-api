@@ -52,8 +52,22 @@ aprobación, aunque el pedido parezca claro.
 - Implementado: login (`POST /auth/login`), `GET /auth/me`, JWT HS256,
   `AccessPolicy` (autorización por rol en `domain`), 401/403 en formato
   `ApiError`, CORS, OpenAPI (springdoc) y seed de usuarios en el perfil `dev`.
-- Próximo paso: la siguiente spec (work orders); los endpoints restringidos
-  por rol reales llegan ahí.
+- Spec 01 (técnicos y equipos, módulo `maintenance`): `requirements.md`
+  (REQ-1 a REQ-41), `design.md` y `tasks.md` aprobados (2026-09-30). Las 12
+  tareas están implementadas y marcadas; `./gradlew test` pasa y el recorrido
+  de REQ-1 a REQ-41 con su evidencia está al final de `tasks.md`. Implementado:
+  `/technicians` y `/teams` (CRUD con permisos por rol en `domain`, validación
+  en `domain` después de autorizar: orden `401 → 403 → 400 → 404 → 409`),
+  migraciones `V2`/`V3` con el seed `V2_1` (solo `dev`) y las excepciones
+  genéricas de `shared/domain`. Pendiente: que el workflow de CI termine en
+  verde en un PR.
+- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (00-A
+  enmienda de sesión, ya sin bloqueo; 02 máquinas y partes, 03 y 04 órdenes,
+  05 dashboard, 06 operación). Contrato de API decidido: REST limpio en inglés.
+  Los `requirements.md` se escriben de a una spec, con aprobación entre cada
+  una. La spec 02 debe numerar sus migraciones desde `V4` (la 01 usa `V2`,
+  `V2_1` y `V3`). Pendiente de la spec 00: cierre formal (REQ-1 a REQ-14) y la
+  enmienda del contrato de sesión (`{token, user}`).
 - Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 
 ## Testing

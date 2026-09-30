@@ -10,6 +10,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import com.enterpriselab.api.maintenance.persistence.TechnicianEntity;
+
 /**
  * Mapea 1:1 la tabla {@code users} de V1__init.sql. {@code role} se guarda
  * como el mismo string kebab-case que {@link com.enterpriselab.api.auth.domain.Role}

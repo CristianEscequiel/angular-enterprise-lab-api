@@ -27,7 +27,8 @@ class MigrationIT extends AbstractPostgresIT {
                 "select column_name from information_schema.columns "
                         + "where table_schema = 'public' and table_name = 'technicians'",
                 String.class);
-        assertThat(technicianColumns).containsExactlyInAnyOrder("id", "legajo");
+        assertThat(technicianColumns).containsExactlyInAnyOrder(
+                "id", "legajo", "first_name", "last_name", "specialty", "team_type");
 
         List<String> userColumns = jdbcTemplate.queryForList(
                 "select column_name from information_schema.columns "
@@ -49,8 +50,9 @@ class MigrationIT extends AbstractPostgresIT {
     @Test
     void nonTecnicoWithTechnicianIdViolatesCheckConstraint() {
         Long technicianId = jdbcTemplate.queryForObject(
-                "insert into technicians (legajo) values (?) returning id",
-                Long.class, "LEG-MIGRATION-IT");
+                "insert into technicians (legajo, first_name, last_name, specialty, team_type) "
+                        + "values (?, 'Test', 'Migration', 'general', 'guardia') returning id",
+                Long.class, "99000001");
 
         assertThatExceptionOfType(DataIntegrityViolationException.class).isThrownBy(() ->
                 jdbcTemplate.update(
