@@ -245,7 +245,7 @@ implementada** (el perfil del técnico sale de las columnas que ella agrega a
 que siempre: toda tarea deja `./gradlew test` en verde; las IT comparten un
 único Postgres, así que cada test usa datos propios y los limpia.
 
-- [ ] 23. Migraciones `V4`, `V4_1` (seed dev) y `V5`, y ajuste de `MigrationIT` y `SeedUsersIT`
+- [x] 23. Migraciones `V4`, `V4_1` (seed dev) y `V5`, y ajuste de `MigrationIT` y `SeedUsersIT`
   - Detalle: `db/migration/V4__users_profile.sql` (`display_name` y `email`
     nulables), `db/seed/V4_1__seed_users_profile.sql` (`UPDATE` de los cinco
     usuarios con los valores de la tabla de design.md §10.2) y

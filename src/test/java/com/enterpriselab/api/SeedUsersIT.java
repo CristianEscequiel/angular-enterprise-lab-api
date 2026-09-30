@@ -46,4 +46,19 @@ class SeedUsersIT extends AbstractPostgresIT {
         assertThat(tecnicos).hasSize(2);
         assertThat(tecnicos).allSatisfy(row -> assertThat(row.get("technician_id")).isNotNull());
     }
+
+    /** REQ-16 (enmienda 00-A): nombre visible y correo de los cinco usuarios, iguales a {@code db.json} del frontend. */
+    @Test
+    void seedLoadsTheDisplayNameAndEmailOfEveryUser() {
+        List<Map<String, Object>> users = jdbcTemplate.queryForList(
+                "select username, display_name, email from users order by username");
+
+        assertThat(users).extracting(row -> row.get("username") + "|" + row.get("display_name") + "|" + row.get("email"))
+                .containsExactly(
+                        "admin|Administrador|admin@enterprise-lab.dev",
+                        "electricista|Técnico Electricista Preventivo|electricista@enterprise-lab.dev",
+                        "produccion|Personal de Producción|produccion@enterprise-lab.dev",
+                        "teamleader|Team Leader de Mantenimiento|teamleader@enterprise-lab.dev",
+                        "tecnico|Técnico Mecánico de Guardia|tecnico@enterprise-lab.dev");
+    }
 }
