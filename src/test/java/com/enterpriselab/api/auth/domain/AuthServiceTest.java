@@ -35,7 +35,8 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(userRepository, passwordEncoder, tokenIssuer);
-        admin = new User(1L, "admin", passwordEncoder.encode("secret"), Role.ADMINISTRADOR, null);
+        admin = new User(1L, "admin", passwordEncoder.encode("secret"), "Administrador",
+                "admin@enterprise-lab.dev", Role.ADMINISTRADOR, null, null, null);
     }
 
     @Test

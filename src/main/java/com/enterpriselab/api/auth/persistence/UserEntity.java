@@ -31,6 +31,12 @@ public class UserEntity {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
+    @Column(name = "display_name", nullable = false, length = 100)
+    private String displayName;
+
+    @Column(nullable = false, length = 254)
+    private String email;
+
     @Column(nullable = false, length = 40)
     private String role;
 
@@ -42,9 +48,12 @@ public class UserEntity {
         // JPA
     }
 
-    public UserEntity(String username, String passwordHash, String role, TechnicianEntity technician) {
+    public UserEntity(String username, String passwordHash, String displayName, String email, String role,
+            TechnicianEntity technician) {
         this.username = username;
         this.passwordHash = passwordHash;
+        this.displayName = displayName;
+        this.email = email;
         this.role = role;
         this.technician = technician;
     }
@@ -59,6 +68,14 @@ public class UserEntity {
 
     public String getPasswordHash() {
         return passwordHash;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getEmail() {
+        return email;
     }
 
     public String getRole() {

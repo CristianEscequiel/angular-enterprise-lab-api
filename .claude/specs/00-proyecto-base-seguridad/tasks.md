@@ -275,7 +275,7 @@ que siempre: toda tarea deja `./gradlew test` en verde; las IT comparten un
     `users` vacía (el seed no se carga fuera de `dev`).
   - _Requisitos: REQ-15, REQ-16_
 
-- [ ] 25. `User` con perfil completo, `UserEntity` y `UserMapper`
+- [x] 25. `User` con perfil completo, `UserEntity` y `UserMapper`
   - Detalle: `User` suma `displayName`, `email`, `specialty` y `teamType`
     (`String`, design.md §10.1) con las invariantes de §10.3: `displayName` y
     `email` no nulos ni en blanco; un `tecnico` tiene `specialty` y `teamType`;
