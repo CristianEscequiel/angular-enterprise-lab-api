@@ -169,7 +169,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     inválido, `400`.
   - _Requisitos: REQ-1 a REQ-19, REQ-39_
 
-- [ ] 10. `TeamController`
+- [x] 10. `TeamController`
   - Detalle: `TeamRequest`, `TeamResponse` y `TeamController` en `/teams` con
     los cinco endpoints de design.md §5, mismas convenciones que la tarea 9.
     `id` de la URL como `String`.
