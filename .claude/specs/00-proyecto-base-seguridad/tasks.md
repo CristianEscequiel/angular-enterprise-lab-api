@@ -263,7 +263,7 @@ que siempre: toda tarea deja `./gradlew test` en verde; las IT comparten un
     nombre y el correo de `db.json`.
   - _Requisitos: REQ-15, REQ-16_
 
-- [ ] 24. Prueba de migración sobre una base ya sembrada (`UsersProfileUpgradeIT`)
+- [x] 24. Prueba de migración sobre una base ya sembrada (`UsersProfileUpgradeIT`)
   - Detalle: JUnit sin contexto de Spring, en el paquete `com.enterpriselab.api`
     y con el contenedor de `AbstractPostgresIT` (mismo patrón que
     `MaintenanceUpgradeIT`): una base vacía por test y la API de Flyway.
