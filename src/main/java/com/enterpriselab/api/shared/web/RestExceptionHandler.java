@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -17,6 +18,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.enterpriselab.api.auth.domain.ForbiddenOperationException;
 import com.enterpriselab.api.auth.domain.InvalidCredentialsException;
+import com.enterpriselab.api.shared.domain.ConflictException;
+import com.enterpriselab.api.shared.domain.InvalidReferenceException;
+import com.enterpriselab.api.shared.domain.NotFoundException;
+import com.enterpriselab.api.shared.domain.ValidationFailedException;
 
 /**
  * REQ-13: manejador global de excepciones — cualquier error controlado
@@ -48,6 +53,43 @@ public class RestExceptionHandler {
         ApiError body = ApiError.of("VALIDATION_ERROR", "La solicitud tiene datos inválidos",
                 request.getRequestURI(), details.isEmpty() ? null : details);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /** JSON malformado o sin cuerpo: Spring lo rechaza antes de entrar al controller. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException exception,
+            HttpServletRequest request) {
+        ApiError body = ApiError.of("VALIDATION_ERROR", "El cuerpo de la solicitud no es un JSON válido",
+                request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(ValidationFailedException.class)
+    public ResponseEntity<ApiError> handleValidationFailed(ValidationFailedException exception,
+            HttpServletRequest request) {
+        Map<String, String> details = exception.details();
+        ApiError body = ApiError.of("VALIDATION_ERROR", exception.getMessage(), request.getRequestURI(),
+                details.isEmpty() ? null : details);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(InvalidReferenceException.class)
+    public ResponseEntity<ApiError> handleInvalidReference(InvalidReferenceException exception,
+            HttpServletRequest request) {
+        ApiError body = ApiError.of(exception.code(), exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ApiError> handleDomainNotFound(NotFoundException exception, HttpServletRequest request) {
+        ApiError body = ApiError.of("NOT_FOUND", exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(ConflictException exception, HttpServletRequest request) {
+        ApiError body = ApiError.of(exception.code(), exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)

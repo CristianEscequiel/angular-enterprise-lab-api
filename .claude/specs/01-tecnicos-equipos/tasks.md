@@ -37,7 +37,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     y `teams` vacías.
   - _Requisitos: REQ-36, REQ-37_
 
-- [ ] 3. Excepciones genéricas y su traducción HTTP
+- [x] 3. Excepciones genéricas y su traducción HTTP
   - Detalle: en `shared/domain`, `ValidationFailedException(Map details)`,
     `InvalidReferenceException(code, message)`, `NotFoundException(message)` y
     `ConflictException(code, message)`. En `RestExceptionHandler`, un handler

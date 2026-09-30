@@ -47,6 +47,67 @@ class RestExceptionHandlerTest {
     }
 
     @Test
+    void domainValidationFailureRespondsWithDetailsPerField() throws Exception {
+        mockMvc.perform(get("/test/validation-failed"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/test/validation-failed"))
+                .andExpect(jsonPath("$.details.legajo").value("Debe tener entre 1 y 8 dígitos"))
+                .andExpect(jsonPath("$.details.firstName").value("Es obligatorio"));
+    }
+
+    @Test
+    void invalidReferenceRespondsBadRequestWithItsOwnCode() throws Exception {
+        mockMvc.perform(get("/test/invalid-reference"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("UNKNOWN_TECHNICIAN"))
+                .andExpect(jsonPath("$.message").value("No existe el técnico con legajo 9999"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/test/invalid-reference"))
+                .andExpect(jsonPath("$.details").doesNotExist());
+    }
+
+    @Test
+    void domainNotFoundRespondsNotFound() throws Exception {
+        mockMvc.perform(get("/test/not-found"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("No existe el técnico con legajo 9999"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/test/not-found"));
+    }
+
+    @Test
+    void conflictRespondsConflictWithItsOwnCode() throws Exception {
+        mockMvc.perform(get("/test/conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_LEGAJO"))
+                .andExpect(jsonPath("$.message").value("Ya existe un técnico con legajo 1001"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/test/conflict"));
+    }
+
+    @Test
+    void malformedJsonBodyRespondsValidationError() throws Exception {
+        mockMvc.perform(post("/test/validate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{esto no es json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/test/validate"));
+    }
+
+    @Test
+    void missingJsonBodyRespondsValidationError() throws Exception {
+        mockMvc.perform(post("/test/validate").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void unmappedRouteRespondsNotFoundWithConsistentBody() throws Exception {
         mockMvc.perform(get("/esta-ruta-no-existe"))
                 .andExpect(status().isNotFound())
