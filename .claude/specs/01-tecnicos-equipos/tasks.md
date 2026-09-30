@@ -24,7 +24,7 @@ deja `./gradlew test` en verde. Las IT comparten un único Postgres (ver
     y `SeedUsersIT` siguen en verde.
   - _Requisitos: REQ-36, REQ-37_
 
-- [ ] 2. Prueba de migración sobre una base ya sembrada (`MaintenanceUpgradeIT`)
+- [x] 2. Prueba de migración sobre una base ya sembrada (`MaintenanceUpgradeIT`)
   - Detalle: JUnit sin contexto de Spring, en el paquete `com.enterpriselab.api`
     para usar el contenedor de `AbstractPostgresIT`. Crea una base vacía dentro
     de ese contenedor y usa la API de Flyway con `locations` de `db/migration`
