@@ -115,11 +115,21 @@ aprobación, aunque el pedido parezca claro.
   `takenById`, `takenByName`) vía `ConflictException`. Migración `V8` con tres
   `CHECK` de invariantes de estado. Orden de errores `401 → 403 rol → 400 → 404 →
   403 equipo → 409`. Pendiente: que el workflow de CI termine en verde en un PR.
-- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (05 dashboard;
-  06 operación). Contrato de API decidido: REST limpio en inglés. Los
+- Spec 05 (dashboard, módulo `dashboard`): `requirements.md` (REQ-1 a REQ-20),
+  `design.md` y `tasks.md` aprobados (2026-10-01). Las 8 tareas están implementadas y
+  marcadas; `./gradlew test` pasa y el recorrido de REQ-1 a REQ-20 con su evidencia está
+  al final de `tasks.md`. Implementado: `GET /dashboard/summary` (cualquier rol; conteos
+  por estado, prioridad y tipo sobre todas las órdenes, `total`, `open`, `closedInPeriod` y
+  `averageResolutionMinutes`, con `from`/`to` opcionales, 30 días UTC por defecto) y `GET
+  /dashboard/workload` (administrador y team leader; arreglo `{takenById, takenByName,
+  inProgress}`). Sin migración: `DashboardStatisticsAdapter` lee `work_orders` con
+  `JdbcTemplate` y las dos consultas del resumen corren en una transacción `REPEATABLE
+  READ` de solo lectura. Pendiente: que el workflow de CI termine en verde en un PR.
+- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (06 operación,
+  opcional). Contrato de API decidido: REST limpio en inglés. Los
   `requirements.md` se escriben de a una spec, con aprobación entre cada una.
   Migraciones: la 01 usa `V2`, `V2_1` y `V3`; la 00-A usa `V4`, `V4_1` y `V5`; la 02
-  usa `V6` y `V6_1`; la 03 usa `V7` y `V7_1`; la 04 usa `V8`; la siguiente numera
+  usa `V6` y `V6_1`; la 03 usa `V7` y `V7_1`; la 04 usa `V8`; la 05 no migra; la siguiente numera
   desde `V9`. Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
 - Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 

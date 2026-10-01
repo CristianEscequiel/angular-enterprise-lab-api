@@ -35,7 +35,7 @@ que hay que sumarlos (se actualiza `structure.md` al aprobar este roadmap).
 | `maintenance` | `maintenance` | `technicians` (se extiende), `teams`, `team_members` | Hecho (spec 01) |
 | `machines` | `machines` | `machines`, `parts` | Hecho (spec 02) |
 | `workorders` | `work-orders` | `work_orders` | Hecho (spec 03: CRUD y listado; spec 04: tomar, cerrar y liberar) |
-| `dashboard` | `dashboard` | (solo lecturas agregadas sobre `work_orders`) | Pendiente, requiere definición de producto |
+| `dashboard` | `dashboard` | (solo lecturas agregadas sobre `work_orders`) | Hecho (spec 05: resumen y carga de trabajo) |
 | `shared` | `core` | — | Hecho: `ApiError`, `RestExceptionHandler`; falta paginación |
 
 ## 3. Specs propuestas, en orden de implementación
@@ -198,4 +198,4 @@ están escritas, salvo objeción al revisar cada `requirements.md`.
    en el orden de §3 (04, 05; la 01, la 00-A, la 02 y la 03 ya están hechas).
    Numeración de migraciones: la 01 usa `V2`, `V2_1` (seed) y `V3`; la 00-A usa
    `V4`, `V4_1` (seed) y `V5`; la 02 usa `V6` y `V6_1` (seed); la 03 usa `V7` y
-   `V7_1` (seed); la 04 usa `V8` (solo `CHECK`, sin seed); las siguientes empiezan en `V9`.
+   `V7_1` (seed); la 04 usa `V8` (solo `CHECK`, sin seed); la 05 no migra; las siguientes empiezan en `V9`.

@@ -195,6 +195,31 @@ class OpenApiIT extends AbstractPostgresIT {
         assertThat(paths.get("/auth/me").toString()).contains("UserResponse");
     }
 
+    /** REQ-20 (spec 05): los endpoints de {@code /dashboard}, generados desde las anotaciones, con {@code bearerAuth}. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void apiDocsListTheDashboardEndpointsWithTheBearerScheme() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+
+        assertThat(paths).containsKeys("/dashboard/summary", "/dashboard/workload");
+        for (String path : List.of("/dashboard/summary", "/dashboard/workload")) {
+            assertThat(paths.get(path)).as(path).containsOnlyKeys("get");
+            Map<String, Object> get = (Map<String, Object>) paths.get(path).get("get");
+            assertThat(get.get("security")).as(path)
+                    .isEqualTo(List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+            assertThat((Map<String, Object>) get.get("responses")).as(path).containsKeys("200", "401");
+        }
+
+        Map<String, Object> summary = (Map<String, Object>) paths.get("/dashboard/summary").get("get");
+        List<Map<String, Object>> parameters = (List<Map<String, Object>>) summary.get("parameters");
+        assertThat(parameters).extracting(p -> p.get("name")).containsExactlyInAnyOrder("from", "to");
+        assertThat(parameters).allSatisfy(p -> assertThat(p.get("in")).isEqualTo("query"));
+        assertThat((Map<String, Object>) summary.get("responses")).containsKey("400");
+        Map<String, Object> workload = (Map<String, Object>) paths.get("/dashboard/workload").get("get");
+        assertThat((Map<String, Object>) workload.get("responses")).containsKey("403");
+    }
+
     @Test
     void swaggerUiIsReachableWithoutToken() {
         ResponseEntity<String> response = restTemplate.getForEntity("/swagger-ui.html", String.class);

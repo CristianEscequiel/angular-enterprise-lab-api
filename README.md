@@ -211,6 +211,36 @@ Un conflicto de estado responde `409` con el estado real y, si hay dueño, quié
 Los otros códigos son `WORK_ORDER_NOT_IN_PROGRESS` y `WORK_ORDER_TAKEN_BY_OTHER`.
 Una orden cerrada no se reabre.
 
+### Dashboard
+
+Dos lecturas, calculadas en el momento sobre `work_orders` (sin caché). El resumen lo ve
+cualquier usuario autenticado; la carga de trabajo, solo `admin` y `teamleader`:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/dashboard/summary"
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/dashboard/summary?from=2026-09-01&to=2026-09-29"
+curl -H "Authorization: Bearer $ADMIN" "http://localhost:8080/dashboard/workload"
+```
+
+Los conteos por estado, prioridad y tipo son sobre **todas** las órdenes. El período
+(`from` y `to`, `YYYY-MM-DD` en UTC, los dos incluidos; por defecto los 30 días que
+terminan hoy) solo afecta a `closedInPeriod` y a `averageResolutionMinutes` (minutos
+entre `createdAt` y el cierre, solo órdenes `completed`; `null` si no hay ninguna):
+
+```json
+{ "period": { "from": "2026-08-31", "to": "2026-09-29" },
+  "byStatus": { "pending": 12, "in-progress": 9, "completed": 9, "cancelled": 2 },
+  "byPriority": { "low": 0, "medium": 0, "high": 0 },
+  "byType": { "preventivo": 0, "correctivo": 0, "pronto-intervencion": 0 },
+  "total": 32, "open": 21,
+  "closedInPeriod": { "completed": 0, "cancelled": 0, "total": 0 },
+  "averageResolutionMinutes": null }
+```
+
+`workload` es un arreglo, por cantidad descendente y nombre ascendente:
+`[{ "takenById": "5", "takenByName": "Técnico Electricista Preventivo", "inProgress": 5 }]`.
+
 ## Endpoints
 
 | Endpoint             | Acceso      | Descripción                                   |
@@ -237,6 +267,8 @@ Una orden cerrada no se reabre.
 | `POST /work-orders/{id}/take` | técnico de equipo habilitado | Toma una orden `pending` (pasa a `in-progress` a su nombre); `403` si su equipo no atiende el tipo; `409 WORK_ORDER_NOT_PENDING` |
 | `POST /work-orders/{id}/close` | técnico dueño de la orden | Cierra con `{outcome: `completed` o `cancelled`, comment}` (50 a 500 caracteres); `400`, `409 WORK_ORDER_NOT_IN_PROGRESS` o `WORK_ORDER_TAKEN_BY_OTHER` |
 | `POST /work-orders/{id}/release` | administrador, team leader | Devuelve una orden `in-progress` a `pending` sin dueño; `409 WORK_ORDER_NOT_IN_PROGRESS` |
+| `GET /dashboard/summary` | autenticado | Conteos por estado, prioridad y tipo, `total`, `open`, cerradas en el período y tiempo promedio de resolución; `from` y `to` opcionales; `400` si una fecha es inválida |
+| `GET /dashboard/workload` | administrador, team leader | Técnicos con órdenes `in-progress` y cuántas tiene cada uno |
 | `/swagger-ui.html`, `/v3/api-docs/**` | público | Documentación OpenAPI          |
 
 Los errores controlados responden siempre `{code, message, timestamp, path}` (y `details` en `400` de validación y en los `409` de las transiciones de una orden).
