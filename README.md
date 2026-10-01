@@ -183,6 +183,34 @@ servidor fija el estado inicial (`pending`), el `createdAt` y el `breadcrumb` (l
 ruta `máquina > parte > sub-parte`, que es una foto: no cambia si después se
 renombra o elimina la máquina o la parte).
 
+### Tomar, cerrar y liberar una orden
+
+El dueño sale del token, nunca del cuerpo. Un técnico toma solo órdenes que su
+equipo atiende (`tecnico`, de guardia: `pronto-intervencion`; `electricista`,
+preventivo-correctivo: `preventivo` y `correctivo`):
+
+```bash
+curl -X POST http://localhost:8080/work-orders/7/take -H "Authorization: Bearer $TECNICO"
+
+curl -X POST http://localhost:8080/work-orders/7/close \
+  -H "Authorization: Bearer $TECNICO" -H 'Content-Type: application/json' \
+  -d '{"outcome":"completed","comment":"Se reemplazó el rodamiento y se verificó el funcionamiento."}'
+
+# administrador o team leader devuelven una orden en progreso a pending
+curl -X POST http://localhost:8080/work-orders/7/release -H "Authorization: Bearer $ADMIN"
+```
+
+Un conflicto de estado responde `409` con el estado real y, si hay dueño, quién es:
+
+```json
+{ "code": "WORK_ORDER_NOT_PENDING", "message": "La orden 7 no está pendiente",
+  "timestamp": "2026-09-30T12:00:00Z", "path": "/work-orders/7/take",
+  "details": { "status": "in-progress", "takenById": "5", "takenByName": "Técnico Electricista Preventivo" } }
+```
+
+Los otros códigos son `WORK_ORDER_NOT_IN_PROGRESS` y `WORK_ORDER_TAKEN_BY_OTHER`.
+Una orden cerrada no se reabre.
+
 ## Endpoints
 
 | Endpoint             | Acceso      | Descripción                                   |
@@ -206,9 +234,12 @@ renombra o elimina la máquina o la parte).
 | `POST /work-orders` | team leader (`preventivo`, `correctivo`), producción (`pronto-intervencion`) | Alta; `400` con `MACHINE_NOT_FOUND`, `PART_NOT_FOUND` o `PART_OTHER_MACHINE` si la referencia no resuelve |
 | `PUT /work-orders/{id}` | administrador, team leader | Edita título, descripción y prioridad, en cualquier estado; `400` si se intenta cambiar el tipo o la máquina |
 | `DELETE /work-orders/{id}` | administrador | Baja, en cualquier estado |
+| `POST /work-orders/{id}/take` | técnico de equipo habilitado | Toma una orden `pending` (pasa a `in-progress` a su nombre); `403` si su equipo no atiende el tipo; `409 WORK_ORDER_NOT_PENDING` |
+| `POST /work-orders/{id}/close` | técnico dueño de la orden | Cierra con `{outcome: `completed` o `cancelled`, comment}` (50 a 500 caracteres); `400`, `409 WORK_ORDER_NOT_IN_PROGRESS` o `WORK_ORDER_TAKEN_BY_OTHER` |
+| `POST /work-orders/{id}/release` | administrador, team leader | Devuelve una orden `in-progress` a `pending` sin dueño; `409 WORK_ORDER_NOT_IN_PROGRESS` |
 | `/swagger-ui.html`, `/v3/api-docs/**` | público | Documentación OpenAPI          |
 
-Los errores controlados responden siempre `{code, message, timestamp, path}`.
+Los errores controlados responden siempre `{code, message, timestamp, path}` (y `details` en `400` de validación y en los `409` de las transiciones de una orden).
 
 ## Tests
 

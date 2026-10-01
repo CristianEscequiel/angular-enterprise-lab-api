@@ -34,7 +34,7 @@ que hay que sumarlos (se actualiza `structure.md` al aprobar este roadmap).
 | `auth` | `auth`, `core/auth` | `users` | Hecho (spec 00 + enmienda 00-A de sesión) |
 | `maintenance` | `maintenance` | `technicians` (se extiende), `teams`, `team_members` | Hecho (spec 01) |
 | `machines` | `machines` | `machines`, `parts` | Hecho (spec 02) |
-| `workorders` | `work-orders` | `work_orders` | Spec 03 hecha (CRUD y listado); falta la spec 04 (tomar, cerrar y liberar) |
+| `workorders` | `work-orders` | `work_orders` | Hecho (spec 03: CRUD y listado; spec 04: tomar, cerrar y liberar) |
 | `dashboard` | `dashboard` | (solo lecturas agregadas sobre `work_orders`) | Pendiente, requiere definición de producto |
 | `shared` | `core` | — | Hecho: `ApiError`, `RestExceptionHandler`; falta paginación |
 
@@ -198,5 +198,4 @@ están escritas, salvo objeción al revisar cada `requirements.md`.
    en el orden de §3 (04, 05; la 01, la 00-A, la 02 y la 03 ya están hechas).
    Numeración de migraciones: la 01 usa `V2`, `V2_1` (seed) y `V3`; la 00-A usa
    `V4`, `V4_1` (seed) y `V5`; la 02 usa `V6` y `V6_1` (seed); la 03 usa `V7` y
-   `V7_1` (seed); las siguientes empiezan en `V8` (la spec 04 no debería necesitar
-   migrar: las columnas de `takenBy` y `closingNote` ya están en `V7`).
+   `V7_1` (seed); la 04 usa `V8` (solo `CHECK`, sin seed); las siguientes empiezan en `V9`.

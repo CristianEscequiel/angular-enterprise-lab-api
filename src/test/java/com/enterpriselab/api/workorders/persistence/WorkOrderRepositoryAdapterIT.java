@@ -8,6 +8,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.enterpriselab.api.AbstractPostgresIT;
@@ -42,6 +45,10 @@ class WorkOrderRepositoryAdapterIT extends AbstractPostgresIT {
     private WorkOrderRepository repository;
     @Autowired
     private JdbcTemplate jdbcTemplate;
+    @Autowired
+    private WorkOrderJpaRepository jpaRepository;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @AfterEach
     void cleanUp() {
@@ -261,8 +268,13 @@ class WorkOrderRepositoryAdapterIT extends AbstractPostgresIT {
         WorkOrder a = repository.save(order("WORA-f-a", null, "M", "", Priority.LOW));
         WorkOrder b = repository.save(order("WORA-f-b", null, "M", "", Priority.HIGH));
         WorkOrder c = repository.save(order("WORA-f-c", null, "M", "", Priority.HIGH));
-        jdbcTemplate.update("update work_orders set status = 'completed' where id in (?, ?)", b.id(), a.id());
-        jdbcTemplate.update("update work_orders set status = 'cancelled' where id = ?", c.id());
+        // V8 (spec 04): una orden cerrada tiene dueño y nota, con el mismo autor.
+        String closeAs = "update work_orders set status = ?, taken_by_id = u.id, taken_by_name = 'Dueño', "
+                + "taken_at = now(), closing_comment = 'Nota', closing_author_id = u.id, "
+                + "closing_author_name = 'Dueño', closed_at = now() from users u "
+                + "where u.username = 'tecnico' and work_orders.id in (%s)";
+        jdbcTemplate.update(closeAs.formatted("?, ?"), "completed", b.id(), a.id());
+        jdbcTemplate.update(closeAs.formatted("?"), "cancelled", c.id());
 
         assertThat(titles(filter("wora-f-", WorkOrderStatus.COMPLETED, null))).containsExactly("WORA-f-a", "WORA-f-b");
         assertThat(titles(filter("wora-f-", null, Priority.HIGH))).containsExactly("WORA-f-b", "WORA-f-c");
@@ -281,6 +293,109 @@ class WorkOrderRepositoryAdapterIT extends AbstractPostgresIT {
                 .totalItems()).isGreaterThanOrEqualTo(2);
         assertThat(repository.search(filter(null, WorkOrderStatus.IN_PROGRESS, null), new PageQuery(1, 100))
                 .items()).allSatisfy(o -> assertThat(o.status()).isEqualTo(WorkOrderStatus.IN_PROGRESS));
+    }
+
+    // --- Transiciones (spec 04: REQ-7, REQ-20, REQ-21, REQ-22, REQ-28, REQ-29) ---------------------------
+
+    @Test
+    void takeWritesTheOwnerAndTheRereadSeesIt() {
+        WorkOrder saved = repository.save(order("WORA-take", null, "M", ""));
+        long userId = userId("tecnico");
+
+        WorkOrder taken = repository.take(saved.id(), new TakenBy(userId, "Técnico", NOW)).orElseThrow();
+
+        assertThat(taken.status()).isEqualTo(WorkOrderStatus.IN_PROGRESS);
+        assertThat(taken.takenBy()).isEqualTo(new TakenBy(userId, "Técnico", NOW));
+        assertThat(taken.closingNote()).isNull();
+        assertThat(repository.findById(saved.id())).contains(taken);
+    }
+
+    @Test
+    void takeOnAnOrderThatIsNotPendingTouchesNothing() {
+        WorkOrder saved = repository.save(order("WORA-take2", null, "M", ""));
+        long userId = userId("tecnico");
+        repository.take(saved.id(), new TakenBy(userId, "Técnico", NOW)).orElseThrow();
+
+        assertThat(repository.take(saved.id(), new TakenBy(userId("electricista"), "Otro", NOW))).isEmpty();
+        assertThat(repository.findById(saved.id()).orElseThrow().takenBy().userId()).isEqualTo(userId);
+    }
+
+    @Test
+    void closeWritesTheNoteAndKeepsTheOwner() {
+        WorkOrder saved = repository.save(order("WORA-close", null, "M", ""));
+        long userId = userId("tecnico");
+        repository.take(saved.id(), new TakenBy(userId, "Técnico", NOW)).orElseThrow();
+
+        WorkOrder closed = repository.close(saved.id(), userId, WorkOrderStatus.CANCELLED,
+                new ClosingNote("Nota de cierre", userId, "Técnico", NOW.plusSeconds(5))).orElseThrow();
+
+        assertThat(closed.status()).isEqualTo(WorkOrderStatus.CANCELLED);
+        assertThat(closed.takenBy()).isEqualTo(new TakenBy(userId, "Técnico", NOW));
+        assertThat(closed.closingNote()).isEqualTo(
+                new ClosingNote("Nota de cierre", userId, "Técnico", NOW.plusSeconds(5)));
+        assertThat(repository.findById(saved.id())).contains(closed);
+    }
+
+    @Test
+    void closeTouchesNothingForAWrongStatusAnotherOwnerOrAMissingId() {
+        WorkOrder pending = repository.save(order("WORA-close-p", null, "M", ""));
+        WorkOrder mine = repository.save(order("WORA-close-m", null, "M", ""));
+        long userId = userId("tecnico");
+        long otherId = userId("electricista");
+        repository.take(mine.id(), new TakenBy(userId, "Técnico", NOW)).orElseThrow();
+        ClosingNote note = new ClosingNote("Nota", otherId, "Otro", NOW);
+
+        assertThat(repository.close(pending.id(), userId, WorkOrderStatus.COMPLETED, note)).isEmpty();
+        assertThat(repository.close(mine.id(), otherId, WorkOrderStatus.COMPLETED, note)).isEmpty();
+        assertThat(repository.close(-1L, userId, WorkOrderStatus.COMPLETED, note)).isEmpty();
+        assertThat(repository.findById(mine.id()).orElseThrow().status()).isEqualTo(WorkOrderStatus.IN_PROGRESS);
+        assertThat(repository.findById(pending.id()).orElseThrow().status()).isEqualTo(WorkOrderStatus.PENDING);
+    }
+
+    @Test
+    void releaseClearsTheOwnerAndAnythingElseTouchesNothing() {
+        WorkOrder saved = repository.save(order("WORA-release", null, "M", ""));
+        long userId = userId("tecnico");
+        assertThat(repository.release(saved.id())).isEmpty();
+        repository.take(saved.id(), new TakenBy(userId, "Técnico", NOW)).orElseThrow();
+
+        WorkOrder released = repository.release(saved.id()).orElseThrow();
+
+        assertThat(released.status()).isEqualTo(WorkOrderStatus.PENDING);
+        assertThat(released.takenBy()).isNull();
+        assertThat(released.closingNote()).isNull();
+        assertThat(repository.release(-1L)).isEmpty();
+        assertThat(jdbcTemplate.queryForObject("select taken_at from work_orders where id = ?", Object.class,
+                saved.id())).isNull();
+    }
+
+    /** REQ-28: una entity leída antes de un cierre y guardada después no pisa estado, dueño ni nota. */
+    @Test
+    void aStaleEntitySavedAfterACloseDoesNotOverwriteTheTransition() {
+        WorkOrder saved = repository.save(order("WORA-stale", null, "M", ""));
+        long userId = userId("tecnico");
+        repository.take(saved.id(), new TakenBy(userId, "Técnico", NOW)).orElseThrow();
+        TransactionTemplate outer = new TransactionTemplate(transactionManager);
+        TransactionTemplate inner = new TransactionTemplate(transactionManager);
+        inner.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        outer.executeWithoutResult(status -> {
+            WorkOrderEntity stale = jpaRepository.findById(saved.id()).orElseThrow();
+            inner.executeWithoutResult(other -> repository.close(saved.id(), userId, WorkOrderStatus.COMPLETED,
+                    new ClosingNote("Nota", userId, "Técnico", NOW)).orElseThrow());
+            stale.updateDetails("WORA-stale-edited", "Descripción editada", "high");
+            jpaRepository.saveAndFlush(stale);
+        });
+
+        WorkOrder read = repository.findById(saved.id()).orElseThrow();
+        assertThat(read.title()).isEqualTo("WORA-stale-edited");
+        assertThat(read.status()).isEqualTo(WorkOrderStatus.COMPLETED);
+        assertThat(read.takenBy().userId()).isEqualTo(userId);
+        assertThat(read.closingNote().comment()).isEqualTo("Nota");
+    }
+
+    private long userId(String username) {
+        return jdbcTemplate.queryForObject("select id from users where username = ?", Long.class, username);
     }
 
     // --- Ayudas ---------------------------------------------------------------------------------------

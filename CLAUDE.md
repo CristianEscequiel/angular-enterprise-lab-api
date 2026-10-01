@@ -102,14 +102,25 @@ aprobación, aunque el pedido parezca claro.
   `shared/domain/NumericId`; `shared` suma `PageQuery`, `PageResult`,
   `PageResponse` y `ClockConfig`. Pendiente: que el workflow de CI termine en
   verde en un PR.
-- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (04 órdenes:
-  tomar, cerrar y liberar; 05 dashboard; 06 operación). Contrato de API decidido:
-  REST limpio en inglés. Los `requirements.md` se escriben de a una spec, con
-  aprobación entre cada una. **La spec 04 no debería necesitar migrar** (las
-  columnas de `takenBy` y `closingNote` ya están en `V7`; si lo necesita,
-  numera desde `V8`). Migraciones: la 01 usa `V2`, `V2_1` y `V3`; la 00-A usa `V4`,
-  `V4_1` y `V5`; la 02 usa `V6` y `V6_1`; la 03 usa `V7` y `V7_1`. Pendiente de
-  la spec 00: su cierre formal (REQ-1 a REQ-14).
+- Spec 04 (órdenes de trabajo: tomar, cerrar y liberar, módulo `workorders`):
+  `requirements.md` (REQ-1 a REQ-31), `design.md` y `tasks.md`. Las 11 tareas
+  están implementadas y marcadas; `./gradlew test` pasa y el recorrido de REQ-1 a
+  REQ-31 con su evidencia y los desvíos está al final de `tasks.md`. Implementado:
+  `POST /work-orders/{id}/take` (técnico de equipo habilitado), `/close` (técnico
+  dueño; `outcome` `completed` o `cancelled` y comentario de 50 a 500) y `/release`
+  (administrador y team leader), con `WorkOrderFlowService` en `domain`. Cada
+  transición es un `UPDATE` condicional (el servicio reintenta hasta 3 veces si toca
+  0 filas); `WorkOrderEntity` conserva `updatable = false` y solo las consultas
+  `@Modifying` escriben estado, dueño y nota. `409` con `details` (`status`,
+  `takenById`, `takenByName`) vía `ConflictException`. Migración `V8` con tres
+  `CHECK` de invariantes de estado. Orden de errores `401 → 403 rol → 400 → 404 →
+  403 equipo → 409`. Pendiente: que el workflow de CI termine en verde en un PR.
+- Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (05 dashboard;
+  06 operación). Contrato de API decidido: REST limpio en inglés. Los
+  `requirements.md` se escriben de a una spec, con aprobación entre cada una.
+  Migraciones: la 01 usa `V2`, `V2_1` y `V3`; la 00-A usa `V4`, `V4_1` y `V5`; la 02
+  usa `V6` y `V6_1`; la 03 usa `V7` y `V7_1`; la 04 usa `V8`; la siguiente numera
+  desde `V9`. Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
 - Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 
 ## Testing

@@ -105,6 +105,20 @@ class RestExceptionHandlerTest {
     }
 
     @Test
+    void conflictWithDetailsSerializesThem() throws Exception {
+        mockMvc.perform(get("/test/conflict-details"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("WORK_ORDER_NOT_PENDING"))
+                .andExpect(jsonPath("$.details.status").value("in-progress"));
+    }
+
+    @Test
+    void conflictWithoutDetailsOmitsTheField() throws Exception {
+        mockMvc.perform(get("/test/conflict")).andExpect(jsonPath("$.details").doesNotExist());
+        mockMvc.perform(get("/test/conflict-empty-details")).andExpect(jsonPath("$.details").doesNotExist());
+    }
+
+    @Test
     void malformedJsonBodyRespondsValidationError() throws Exception {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -17,4 +17,13 @@ public interface WorkOrderRepository {
     WorkOrder save(WorkOrder order);
 
     void deleteById(long id);
+
+    /** {@code pending} → {@code in-progress} con dueño; vacío si la orden ya no está {@code pending} (0 filas). */
+    Optional<WorkOrder> take(long id, TakenBy owner);
+
+    /** {@code in-progress} del dueño → {@code outcome} con nota; vacío si ya no cumple (0 filas). */
+    Optional<WorkOrder> close(long id, long ownerId, WorkOrderStatus outcome, ClosingNote note);
+
+    /** {@code in-progress} → {@code pending} sin dueño; vacío si ya no está {@code in-progress} (0 filas). */
+    Optional<WorkOrder> release(long id);
 }

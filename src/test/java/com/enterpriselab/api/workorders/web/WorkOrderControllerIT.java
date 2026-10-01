@@ -843,19 +843,22 @@ class WorkOrderControllerIT extends AbstractPostgresIT {
         return (String) response.getBody().get("id");
     }
 
-    /** Fuerza por SQL el estado, el dueño y la nota de cierre: cambiarlos por la API es de la spec 04. */
+    /**
+     * Fuerza por SQL el estado, el dueño y la nota de cierre: cambiarlos por la API es de la spec 04.
+     * Un solo {@code UPDATE}, porque los {@code CHECK} de {@code V8} rechazan el paso intermedio de una
+     * orden cerrada sin nota.
+     */
     private void force(String id, String status) {
         if (status.equals("pending")) {
             return;
         }
-        jdbcTemplate.update("update work_orders set status = ?, taken_by_id = "
-                + "(select id from users where username = 'tecnico'), taken_by_name = 'Técnico Mecánico de Guardia', "
-                + "taken_at = now() where id = ?", status, Long.valueOf(id));
-        if (status.equals("completed") || status.equals("cancelled")) {
-            jdbcTemplate.update("update work_orders set closing_comment = 'Se resolvió y se verificó el funcionamiento.',"
-                    + " closing_author_id = taken_by_id, closing_author_name = taken_by_name, closed_at = now() "
-                    + "where id = ?", Long.valueOf(id));
-        }
+        boolean closed = status.equals("completed") || status.equals("cancelled");
+        jdbcTemplate.update("update work_orders set status = ?, taken_by_id = u.id, "
+                + "taken_by_name = 'Técnico Mecánico de Guardia', taken_at = now()"
+                + (closed ? ", closing_comment = 'Se resolvió y se verificó el funcionamiento.', "
+                        + "closing_author_id = u.id, closing_author_name = 'Técnico Mecánico de Guardia', "
+                        + "closed_at = now()" : "")
+                + " from users u where u.username = 'tecnico' and work_orders.id = ?", status, Long.valueOf(id));
     }
 
     private static String breadcrumbOf(Map<String, Object> order) {

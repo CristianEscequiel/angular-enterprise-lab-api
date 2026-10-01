@@ -14,8 +14,13 @@ import jakarta.persistence.Table;
  * relaciones hacia {@code machines}, {@code parts} ni {@code users} (la orden
  * conserva su historia, REQ-30). {@code type}, {@code priority} y {@code status}
  * se guardan como el mismo string kebab-case que los enums de dominio; el mapeo lo
- * hace {@link WorkOrderMapper}. El único mutador es {@link #updateDetails}: las
- * transiciones de estado son de la spec 04.
+ * hace {@link WorkOrderMapper}. El único mutador es {@link #updateDetails}.
+ *
+ * <p>{@code status}, {@code taken_*} y {@code closing_*} conservan
+ * {@code updatable = false} a propósito: los escriben solo las consultas
+ * {@code @Modifying} de {@link WorkOrderJpaRepository} (spec 04), que no miran esa
+ * marca. Así un {@code save} de la edición, que carga la entity y la guarda, nunca
+ * pisa una transición concurrente (REQ-28).
  */
 @Entity
 @Table(name = "work_orders")

@@ -31,6 +31,7 @@ import com.enterpriselab.api.shared.web.AuthenticatedRole;
 import com.enterpriselab.api.shared.web.OpenApiConfig;
 import com.enterpriselab.api.shared.web.PageResponse;
 import com.enterpriselab.api.workorders.domain.WorkOrder;
+import com.enterpriselab.api.workorders.domain.WorkOrderFlowService;
 import com.enterpriselab.api.workorders.domain.WorkOrderQuery;
 import com.enterpriselab.api.workorders.domain.WorkOrderService;
 
@@ -56,9 +57,11 @@ public class WorkOrderController {
     private static final String ERROR_404 = "No existe una orden con ese id (NOT_FOUND)";
 
     private final WorkOrderService service;
+    private final WorkOrderFlowService flow;
 
-    public WorkOrderController(WorkOrderService service) {
+    public WorkOrderController(WorkOrderService service, WorkOrderFlowService flow) {
         this.service = service;
+        this.flow = flow;
     }
 
     @GetMapping
@@ -133,6 +136,58 @@ public class WorkOrderController {
     public WorkOrderResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable String id,
             @RequestBody WorkOrderUpdateRequest request) {
         return WorkOrderResponse.from(service.update(AuthenticatedRole.from(jwt), id, request.toCommand()));
+    }
+
+    @PostMapping("/{id}/take")
+    @Operation(summary = "Toma una orden pendiente",
+            description = "Solo un técnico cuyo equipo atienda el tipo de la orden. Pasa a in-progress con el "
+                    + "técnico del token como dueño; el cuerpo se ignora.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "La orden en progreso, con takenBy"),
+            @ApiResponse(responseCode = "404", description = ERROR_404,
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "La orden no está pendiente (WORK_ORDER_NOT_PENDING), con status y dueño en details",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    public WorkOrderResponse take(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+        return WorkOrderResponse.from(flow.take(jwt.getSubject(), id));
+    }
+
+    @PostMapping("/{id}/close")
+    @Operation(summary = "Cierra una orden en progreso",
+            description = "Solo el técnico dueño de la orden y de equipo habilitado. outcome es completed o "
+                    + "cancelled; comment de 50 a 500 caracteres. El autor y la hora los fija el servidor.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "La orden cerrada, con closingNote"),
+            @ApiResponse(responseCode = "400", description = "outcome o comment inválidos (VALIDATION_ERROR)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "404", description = ERROR_404,
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "No está en progreso (WORK_ORDER_NOT_IN_PROGRESS) o es de otro técnico "
+                            + "(WORK_ORDER_TAKEN_BY_OTHER)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    public WorkOrderResponse close(@AuthenticationPrincipal Jwt jwt, @PathVariable String id,
+            @RequestBody(required = false) WorkOrderCloseRequest request) {
+        WorkOrderCloseRequest body = request == null ? new WorkOrderCloseRequest(null, null) : request;
+        return WorkOrderResponse.from(flow.close(jwt.getSubject(), id, body.toCommand()));
+    }
+
+    @PostMapping("/{id}/release")
+    @Operation(summary = "Libera una orden en progreso",
+            description = "Administrador y team leader. Vuelve a pending sin dueño; el cuerpo se ignora.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "La orden pendiente, con takenBy null"),
+            @ApiResponse(responseCode = "404", description = ERROR_404,
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "La orden no está en progreso (WORK_ORDER_NOT_IN_PROGRESS)",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    public WorkOrderResponse release(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+        return WorkOrderResponse.from(flow.release(jwt.getSubject(), id));
     }
 
     @DeleteMapping("/{id}")

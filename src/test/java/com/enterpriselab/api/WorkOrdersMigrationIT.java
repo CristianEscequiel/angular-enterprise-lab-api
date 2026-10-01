@@ -80,8 +80,9 @@ class WorkOrdersMigrationIT extends AbstractPostgresIT {
         for (String priority : List.of("low", "medium", "high")) {
             insert("WOMIGIT-p-" + priority, "preventivo", priority, "pending");
         }
-        for (String status : List.of("pending", "in-progress", "completed", "cancelled")) {
-            insert("WOMIGIT-s-" + status, "preventivo", "low", status);
+        insert("WOMIGIT-s-pending", "preventivo", "low", "pending");
+        for (String status : List.of("in-progress", "completed", "cancelled")) {
+            insertWithOwnerAndNote("WOMIGIT-s-" + status, status);
         }
 
         assertThat(jdbcTemplate.queryForObject(
@@ -121,5 +122,16 @@ class WorkOrdersMigrationIT extends AbstractPostgresIT {
         jdbcTemplate.update("insert into work_orders (title, description, machine_id, breadcrumb, type, priority, "
                 + "status, created_at) values (?, 'Descripción de prueba', 1, 'Envasadora', ?, ?, ?, now())",
                 title, type, priority, status);
+    }
+
+    /** V8 (spec 04) exige dueño en las órdenes en progreso o cerradas, y nota en las cerradas. */
+    private void insertWithOwnerAndNote(String title, String status) {
+        boolean closed = status.equals("completed") || status.equals("cancelled");
+        jdbcTemplate.update("insert into work_orders (title, description, machine_id, breadcrumb, type, priority, "
+                + "status, created_at, taken_by_id, taken_by_name, taken_at, closing_comment, closing_author_id, "
+                + "closing_author_name, closed_at) select ?, 'Descripción de prueba', 1, 'Envasadora', "
+                + "'preventivo', 'low', ?, now(), u.id, 'Dueño', now(), "
+                + (closed ? "'Nota de cierre', u.id, 'Dueño', now()" : "null, null, null, null")
+                + " from users u where u.username = 'tecnico'", title, status);
     }
 }

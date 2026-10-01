@@ -146,11 +146,25 @@ class OpenApiIT extends AbstractPostgresIT {
         assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders/{id}").get("delete"))
                 .get("responses")).containsKeys("204", "404");
 
+        for (String action : List.of("take", "close", "release")) {
+            Map<String, Object> flow = (Map<String, Object>) paths.get("/work-orders/{id}/" + action);
+            assertThat(flow).as(action).containsOnlyKeys("post");
+            Map<String, Object> post = (Map<String, Object>) flow.get("post");
+            assertThat(post.get("security")).as(action)
+                    .isEqualTo(List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+            assertThat((Map<String, Object>) post.get("responses")).as(action)
+                    .containsKeys("200", "401", "403", "404", "409");
+        }
+        Map<String, Object> closePost = (Map<String, Object>) paths.get("/work-orders/{id}/close").get("post");
+        assertThat((Map<String, Object>) closePost.get("responses")).containsKey("400");
+
         Map<String, Map<String, Object>> schemas = (Map<String, Map<String, Object>>) ((Map<String, Object>) body
                 .get("components")).get("schemas");
         assertThat((Map<String, Object>) schemas.get("WorkOrderResponse").get("properties")).containsOnlyKeys("id",
                 "title", "description", "machineRef", "type", "priority", "status", "createdAt", "takenBy",
                 "closingNote");
+        assertThat((Map<String, Object>) schemas.get("WorkOrderCloseRequest").get("properties"))
+                .containsOnlyKeys("outcome", "comment");
         assertThat((Map<String, Object>) schemas.get("MachineRefResponse").get("properties"))
                 .containsOnlyKeys("machineId", "partId", "breadcrumb", "comment");
         assertThat((Map<String, Object>) schemas.get("PageResponseWorkOrderResponse").get("properties"))

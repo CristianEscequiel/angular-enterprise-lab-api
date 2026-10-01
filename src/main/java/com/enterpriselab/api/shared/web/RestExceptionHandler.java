@@ -90,7 +90,9 @@ public class RestExceptionHandler {
 
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiError> handleConflict(ConflictException exception, HttpServletRequest request) {
-        ApiError body = ApiError.of(exception.code(), exception.getMessage(), request.getRequestURI());
+        Map<String, String> details = exception.details();
+        ApiError body = ApiError.of(exception.code(), exception.getMessage(), request.getRequestURI(),
+                details.isEmpty() ? null : details);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 

@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import com.enterpriselab.api.auth.domain.ForbiddenOperationException;
 import com.enterpriselab.api.auth.domain.Role;
+import com.enterpriselab.api.maintenance.domain.TeamType;
 
 import static com.enterpriselab.api.auth.domain.Role.ADMINISTRADOR;
 import static com.enterpriselab.api.auth.domain.Role.PERSONAL_PRODUCCION;
@@ -88,6 +89,47 @@ class WorkOrderPermissionsTest {
                 .isInstanceOf(ForbiddenOperationException.class);
         assertThatThrownBy(() -> WorkOrderPermissions.requireEdit(null)).isInstanceOf(ForbiddenOperationException.class);
         assertThatThrownBy(() -> WorkOrderPermissions.requireDelete(null))
+                .isInstanceOf(ForbiddenOperationException.class);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void takeAndCloseAreForTechniciansOnly(Role role) {
+        assertAllowedOnly(Set.of(Role.TECNICO), role, () -> WorkOrderPermissions.requireTake(role));
+        assertAllowedOnly(Set.of(Role.TECNICO), role, () -> WorkOrderPermissions.requireClose(role));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void releaseIsForAdministratorAndTeamLeaderOnly(Role role) {
+        assertAllowedOnly(Set.of(ADMINISTRADOR, TEAM_LEADER_MANTENIMIENTO), role,
+                () -> WorkOrderPermissions.requireRelease(role));
+    }
+
+    /** La matriz completa de 2 equipos x 3 tipos. */
+    @Test
+    void teamServesMatrix() {
+        for (TeamType team : TeamType.values()) {
+            for (WorkOrderType type : WorkOrderType.values()) {
+                boolean serves = team == TeamType.GUARDIA ? type == PRONTO_INTERVENCION
+                        : type == PREVENTIVO || type == CORRECTIVO;
+                if (serves) {
+                    assertThatCode(() -> WorkOrderPermissions.requireTeamServes(team, type)).doesNotThrowAnyException();
+                } else {
+                    assertThatThrownBy(() -> WorkOrderPermissions.requireTeamServes(team, type))
+                            .as("%s atiende %s", team, type).isInstanceOf(ForbiddenOperationException.class);
+                }
+            }
+        }
+    }
+
+    @Test
+    void aMissingRoleOrTeamIsForbiddenForTheTransitions() {
+        assertThatThrownBy(() -> WorkOrderPermissions.requireTake(null)).isInstanceOf(ForbiddenOperationException.class);
+        assertThatThrownBy(() -> WorkOrderPermissions.requireClose(null)).isInstanceOf(ForbiddenOperationException.class);
+        assertThatThrownBy(() -> WorkOrderPermissions.requireRelease(null))
+                .isInstanceOf(ForbiddenOperationException.class);
+        assertThatThrownBy(() -> WorkOrderPermissions.requireTeamServes(null, PREVENTIVO))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 

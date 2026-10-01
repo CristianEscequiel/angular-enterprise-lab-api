@@ -3,6 +3,7 @@ package com.enterpriselab.api.workorders.domain;
 import com.enterpriselab.api.auth.domain.AccessPolicy;
 import com.enterpriselab.api.auth.domain.ForbiddenOperationException;
 import com.enterpriselab.api.auth.domain.Role;
+import com.enterpriselab.api.maintenance.domain.TeamType;
 
 /**
  * Matriz de permisos del módulo, espejo de {@code work-order.permissions.ts} del
@@ -49,5 +50,32 @@ public final class WorkOrderPermissions {
 
     public static void requireDelete(Role current) {
         AccessPolicy.requireRole(current, Role.ADMINISTRADOR);
+    }
+
+    /** Tomar una orden: solo el técnico (spec 04, REQ-3). */
+    public static void requireTake(Role current) {
+        AccessPolicy.requireRole(current, Role.TECNICO);
+    }
+
+    /** Cerrar una orden: solo el técnico (spec 04, REQ-15). */
+    public static void requireClose(Role current) {
+        AccessPolicy.requireRole(current, Role.TECNICO);
+    }
+
+    /** Liberar una orden en progreso: administrador y team leader (spec 04, REQ-23). */
+    public static void requireRelease(Role current) {
+        AccessPolicy.requireRole(current, Role.ADMINISTRADOR, Role.TEAM_LEADER_MANTENIMIENTO);
+    }
+
+    /** {@code guardia} atiende {@code pronto-intervencion}; {@code preventivo-correctivo}, {@code preventivo} y {@code correctivo} (REQ-4). */
+    public static void requireTeamServes(TeamType team, WorkOrderType type) {
+        boolean serves = team == TeamType.GUARDIA
+                ? type == WorkOrderType.PRONTO_INTERVENCION
+                : team == TeamType.PREVENTIVO_CORRECTIVO
+                        && (type == WorkOrderType.PREVENTIVO || type == WorkOrderType.CORRECTIVO);
+        if (!serves) {
+            throw new ForbiddenOperationException("Tu equipo no atiende órdenes de tipo "
+                    + (type == null ? "desconocido" : type.toValue()));
+        }
     }
 }

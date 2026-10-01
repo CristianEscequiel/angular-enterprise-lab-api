@@ -11,9 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.enterpriselab.api.shared.domain.NotFoundException;
 import com.enterpriselab.api.shared.domain.PageQuery;
 import com.enterpriselab.api.shared.domain.PageResult;
+import com.enterpriselab.api.workorders.domain.ClosingNote;
+import com.enterpriselab.api.workorders.domain.TakenBy;
 import com.enterpriselab.api.workorders.domain.WorkOrder;
 import com.enterpriselab.api.workorders.domain.WorkOrderFilter;
 import com.enterpriselab.api.workorders.domain.WorkOrderRepository;
+import com.enterpriselab.api.workorders.domain.WorkOrderStatus;
 
 /**
  * Adaptador JPA del puerto {@link WorkOrderRepository}. No traduce constraints: sin
@@ -66,5 +69,29 @@ class WorkOrderRepositoryAdapter implements WorkOrderRepository {
     public void deleteById(long id) {
         jpaRepository.deleteById(id);
         jpaRepository.flush();
+    }
+
+    @Override
+    @Transactional
+    public Optional<WorkOrder> take(long id, TakenBy owner) {
+        return reread(id, jpaRepository.take(id, owner.userId(), owner.name(), owner.at()));
+    }
+
+    @Override
+    @Transactional
+    public Optional<WorkOrder> close(long id, long ownerId, WorkOrderStatus outcome, ClosingNote note) {
+        return reread(id, jpaRepository.close(id, ownerId, outcome.toValue(), note.comment(), note.authorName(),
+                note.at()));
+    }
+
+    @Override
+    @Transactional
+    public Optional<WorkOrder> release(long id) {
+        return reread(id, jpaRepository.release(id));
+    }
+
+    /** 0 filas tocadas: la condición ya no se cumple y el servicio reevalúa; 1: se relee en la misma transacción. */
+    private Optional<WorkOrder> reread(long id, int updated) {
+        return updated == 0 ? Optional.empty() : jpaRepository.findById(id).map(WorkOrderMapper::toDomain);
     }
 }
