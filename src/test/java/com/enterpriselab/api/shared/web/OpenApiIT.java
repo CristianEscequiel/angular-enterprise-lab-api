@@ -66,6 +66,111 @@ class OpenApiIT extends AbstractPostgresIT {
         assertThat((Map<String, Object>) components.get("securitySchemes")).containsKey("bearerAuth");
     }
 
+    /** REQ-35 (spec 02): todos los endpoints de máquinas y partes, generados desde las anotaciones, con {@code bearerAuth}. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void apiDocsListEveryMachineAndPartEndpointWithTheBearerScheme() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+        List<String> machinePaths = List.of("/machines", "/machines/{id}", "/machines/{machineId}/parts",
+                "/parts/{id}");
+
+        assertThat(paths).containsKeys(machinePaths.toArray(String[]::new));
+        assertThat(paths.get("/machines")).containsOnlyKeys("get", "post");
+        assertThat(paths.get("/machines/{id}")).containsOnlyKeys("get", "put", "delete");
+        assertThat(paths.get("/machines/{machineId}/parts")).containsOnlyKeys("get", "post");
+        assertThat(paths.get("/parts/{id}")).containsOnlyKeys("patch", "delete");
+
+        for (String path : machinePaths) {
+            paths.get(path).forEach((method, operation) -> {
+                Map<String, Object> details = (Map<String, Object>) operation;
+                assertThat(details.get("security")).as(method + " " + path).isEqualTo(
+                        List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+                assertThat(details).as(method + " " + path).containsKey("summary");
+                assertThat((Map<String, Object>) details.get("responses")).as(method + " " + path)
+                        .containsKeys("401", "403");
+            });
+        }
+
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/machines/{id}").get("delete"))
+                .get("responses")).containsKeys("204", "404", "409");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/parts/{id}").get("delete"))
+                .get("responses")).containsKeys("204", "404", "409");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/machines/{machineId}/parts").get("post"))
+                .get("responses")).containsKeys("201", "400", "404");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/machines").get("post"))
+                .get("responses")).containsKeys("201", "400", "409");
+        Map<String, Map<String, Object>> schemas = (Map<String, Map<String, Object>>) ((Map<String, Object>) body
+                .get("components")).get("schemas");
+        assertThat((Map<String, Object>) schemas.get("MachineResponse").get("properties"))
+                .containsOnlyKeys("id", "code", "name", "partCount");
+        assertThat((Map<String, Object>) schemas.get("PartResponse").get("properties"))
+                .containsOnlyKeys("id", "machineId", "parentId", "name");
+    }
+
+    /** REQ-45 (spec 03): todos los endpoints de órdenes, generados desde las anotaciones, con {@code bearerAuth}. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void apiDocsListEveryWorkOrderEndpointWithTheBearerSchemeAndTheListParameters() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+
+        assertThat(paths).containsKeys("/work-orders", "/work-orders/{id}");
+        assertThat(paths.get("/work-orders")).containsOnlyKeys("get", "post");
+        assertThat(paths.get("/work-orders/{id}")).containsOnlyKeys("get", "put", "delete");
+
+        for (String path : List.of("/work-orders", "/work-orders/{id}")) {
+            paths.get(path).forEach((method, operation) -> {
+                Map<String, Object> details = (Map<String, Object>) operation;
+                assertThat(details.get("security")).as(method + " " + path).isEqualTo(
+                        List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+                assertThat(details).as(method + " " + path).containsKey("summary");
+                assertThat((Map<String, Object>) details.get("responses")).as(method + " " + path)
+                        .containsKeys("401", "403");
+            });
+        }
+
+        Map<String, Object> list = (Map<String, Object>) paths.get("/work-orders").get("get");
+        List<Map<String, Object>> parameters = (List<Map<String, Object>>) list.get("parameters");
+        assertThat(parameters).extracting(p -> p.get("name"))
+                .containsExactlyInAnyOrder("page", "size", "title", "status", "priority");
+        assertThat(parameters).allSatisfy(p -> assertThat(p.get("in")).isEqualTo("query"));
+        assertThat((Map<String, Object>) list.get("responses")).containsKeys("200", "400");
+
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders").get("post"))
+                .get("responses")).containsKeys("201", "400");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders/{id}").get("get"))
+                .get("responses")).containsKeys("200", "404");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders/{id}").get("put"))
+                .get("responses")).containsKeys("200", "400", "404");
+        assertThat((Map<String, Object>) ((Map<String, Object>) paths.get("/work-orders/{id}").get("delete"))
+                .get("responses")).containsKeys("204", "404");
+
+        for (String action : List.of("take", "close", "release")) {
+            Map<String, Object> flow = (Map<String, Object>) paths.get("/work-orders/{id}/" + action);
+            assertThat(flow).as(action).containsOnlyKeys("post");
+            Map<String, Object> post = (Map<String, Object>) flow.get("post");
+            assertThat(post.get("security")).as(action)
+                    .isEqualTo(List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+            assertThat((Map<String, Object>) post.get("responses")).as(action)
+                    .containsKeys("200", "401", "403", "404", "409");
+        }
+        Map<String, Object> closePost = (Map<String, Object>) paths.get("/work-orders/{id}/close").get("post");
+        assertThat((Map<String, Object>) closePost.get("responses")).containsKey("400");
+
+        Map<String, Map<String, Object>> schemas = (Map<String, Map<String, Object>>) ((Map<String, Object>) body
+                .get("components")).get("schemas");
+        assertThat((Map<String, Object>) schemas.get("WorkOrderResponse").get("properties")).containsOnlyKeys("id",
+                "title", "description", "machineRef", "type", "priority", "status", "createdAt", "takenBy",
+                "closingNote");
+        assertThat((Map<String, Object>) schemas.get("WorkOrderCloseRequest").get("properties"))
+                .containsOnlyKeys("outcome", "comment");
+        assertThat((Map<String, Object>) schemas.get("MachineRefResponse").get("properties"))
+                .containsOnlyKeys("machineId", "partId", "breadcrumb", "comment");
+        assertThat((Map<String, Object>) schemas.get("PageResponseWorkOrderResponse").get("properties"))
+                .containsOnlyKeys("data", "page", "size", "totalItems", "totalPages");
+    }
+
     /**
      * Enmienda 00-A: el contrato de la sesión (REQ-17, REQ-20) está en la documentación generada
      * desde el código: el login devuelve {@code {token, user}} y {@code /auth/me} el mismo
@@ -88,6 +193,31 @@ class OpenApiIT extends AbstractPostgresIT {
         // /auth/me responde con el mismo UserResponse que el login.
         Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
         assertThat(paths.get("/auth/me").toString()).contains("UserResponse");
+    }
+
+    /** REQ-20 (spec 05): los endpoints de {@code /dashboard}, generados desde las anotaciones, con {@code bearerAuth}. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void apiDocsListTheDashboardEndpointsWithTheBearerScheme() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+
+        assertThat(paths).containsKeys("/dashboard/summary", "/dashboard/workload");
+        for (String path : List.of("/dashboard/summary", "/dashboard/workload")) {
+            assertThat(paths.get(path)).as(path).containsOnlyKeys("get");
+            Map<String, Object> get = (Map<String, Object>) paths.get(path).get("get");
+            assertThat(get.get("security")).as(path)
+                    .isEqualTo(List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+            assertThat((Map<String, Object>) get.get("responses")).as(path).containsKeys("200", "401");
+        }
+
+        Map<String, Object> summary = (Map<String, Object>) paths.get("/dashboard/summary").get("get");
+        List<Map<String, Object>> parameters = (List<Map<String, Object>>) summary.get("parameters");
+        assertThat(parameters).extracting(p -> p.get("name")).containsExactlyInAnyOrder("from", "to");
+        assertThat(parameters).allSatisfy(p -> assertThat(p.get("in")).isEqualTo("query"));
+        assertThat((Map<String, Object>) summary.get("responses")).containsKey("400");
+        Map<String, Object> workload = (Map<String, Object>) paths.get("/dashboard/workload").get("get");
+        assertThat((Map<String, Object>) workload.get("responses")).containsKey("403");
     }
 
     @Test

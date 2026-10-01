@@ -1,4 +1,4 @@
-package com.enterpriselab.api.maintenance.persistence;
+package com.enterpriselab.api.shared.persistence;
 
 import java.util.Optional;
 
@@ -10,13 +10,13 @@ import org.hibernate.exception.ConstraintViolationException;
  * {@code DataIntegrityViolationException} tapada como "duplicado" ocultaría
  * errores reales, como un {@code CHECK} violado.
  */
-final class ConstraintViolations {
+public final class ConstraintViolations {
 
     private ConstraintViolations() {
     }
 
     /** El nombre sin esquema y en minúsculas (Postgres puede informarlo con {@code public.} adelante). */
-    static Optional<String> nameOf(Throwable failure) {
+    public static Optional<String> nameOf(Throwable failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause() == cause ? null : cause.getCause()) {
             if (cause instanceof ConstraintViolationException violation && violation.getConstraintName() != null) {
                 String name = violation.getConstraintName();

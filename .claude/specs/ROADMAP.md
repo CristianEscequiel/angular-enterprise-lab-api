@@ -33,9 +33,9 @@ que hay que sumarlos (se actualiza `structure.md` al aprobar este roadmap).
 |---|---|---|---|
 | `auth` | `auth`, `core/auth` | `users` | Hecho (spec 00 + enmienda 00-A de sesión) |
 | `maintenance` | `maintenance` | `technicians` (se extiende), `teams`, `team_members` | Hecho (spec 01) |
-| `machines` | `machines` | `machines`, `parts` | Pendiente |
-| `workorders` | `work-orders` | `work_orders` | Pendiente |
-| `dashboard` | `dashboard` | (solo lecturas agregadas sobre `work_orders`) | Pendiente, requiere definición de producto |
+| `machines` | `machines` | `machines`, `parts` | Hecho (spec 02) |
+| `workorders` | `work-orders` | `work_orders` | Hecho (spec 03: CRUD y listado; spec 04: tomar, cerrar y liberar) |
+| `dashboard` | `dashboard` | (solo lecturas agregadas sobre `work_orders`) | Hecho (spec 05: resumen y carga de trabajo) |
 | `shared` | `core` | — | Hecho: `ApiError`, `RestExceptionHandler`; falta paginación |
 
 ## 3. Specs propuestas, en orden de implementación
@@ -45,8 +45,8 @@ que hay que sumarlos (se actualiza `structure.md` al aprobar este roadmap).
 | 00 | Proyecto base y seguridad | `auth`, `shared` | — (**hecha**, falta su cierre formal, ver §5) |
 | 01 | Técnicos y equipos | `maintenance` | 00 (**hecha**; falta ver el CI en verde en un PR) |
 | 00-A | Enmienda: contrato de sesión del frontend | `auth` | 00, 01 (**hecha**; falta ver el CI en verde en el PR) |
-| 02 | Máquinas y árbol de partes | `machines` | 00 (puede ir en paralelo con 01) |
-| 03 | Órdenes de trabajo: alta, consulta, edición, baja y listado | `workorders` | 00, 02 |
+| 02 | Máquinas y árbol de partes | `machines` | 00 (**hecha**; falta ver el CI en verde en el PR) |
+| 03 | Órdenes de trabajo: alta, consulta, edición, baja y listado | `workorders` | 00, 02 (**hecha**; falta ver el CI en verde en el PR) |
 | 04 | Órdenes de trabajo: tomar, cerrar y liberar | `workorders` | 03, 01, 00-A |
 | 05 | Dashboard: indicadores | `dashboard` | 03, 04 |
 | 06 | Operación y producción (transversal, opcional) | todos | todas |
@@ -187,13 +187,15 @@ están escritas, salvo objeción al revisar cada `requirements.md`.
 
 1. ~~Actualizar `steering/structure.md` con los módulos `machines` y `dashboard`.~~
    Hecho.
-2. Spec 01 (técnicos y equipos) y enmienda 00-A (contrato de sesión): aprobadas e
+2. Spec 01 (técnicos y equipos), enmienda 00-A (contrato de sesión), spec 02
+   (máquinas y partes) y spec 03 (órdenes: CRUD y listado): aprobadas e
    implementadas (2026-09-30). `requirements.md` escritos, **pendientes de
-   aprobación**: 02 (máquinas y partes), 03 (órdenes: CRUD y listado), 04
-   (órdenes: tomar, cerrar y liberar) y 05 (dashboard, propuesta mía a validar).
+   aprobación**: 04 (órdenes: tomar, cerrar y liberar) y 05 (dashboard, propuesta
+   mía a validar).
 3. Sin escribir todavía: la spec 06 (operación y producción, opcional) y el cierre
    formal de la spec 00 (recorrer REQ-1 a REQ-14 con evidencia).
 4. Con los requisitos aprobados, seguir con `design.md` y `tasks.md` de cada spec,
-   en el orden de §3 (02, 03, 04, 05; la 01 y la 00-A ya están hechas). Numeración
-   de migraciones: la 01 usa `V2`, `V2_1` (seed) y `V3`; la 00-A usa `V4`, `V4_1`
-   (seed) y `V5`; las siguientes empiezan en `V6`.
+   en el orden de §3 (04, 05; la 01, la 00-A, la 02 y la 03 ya están hechas).
+   Numeración de migraciones: la 01 usa `V2`, `V2_1` (seed) y `V3`; la 00-A usa
+   `V4`, `V4_1` (seed) y `V5`; la 02 usa `V6` y `V6_1` (seed); la 03 usa `V7` y
+   `V7_1` (seed); la 04 usa `V8` (solo `CHECK`, sin seed); la 05 no migra; las siguientes empiezan en `V9`.

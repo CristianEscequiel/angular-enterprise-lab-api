@@ -15,6 +15,7 @@ import com.enterpriselab.api.maintenance.domain.Team;
 import com.enterpriselab.api.maintenance.domain.TeamRepository;
 import com.enterpriselab.api.shared.domain.InvalidReferenceException;
 import com.enterpriselab.api.shared.domain.NotFoundException;
+import com.enterpriselab.api.shared.persistence.ConstraintViolations;
 
 /**
  * Adaptador JPA del puerto {@link TeamRepository}. {@code save} reemplaza la

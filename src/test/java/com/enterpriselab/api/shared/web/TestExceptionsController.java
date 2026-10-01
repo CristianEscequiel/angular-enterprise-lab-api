@@ -53,6 +53,17 @@ class TestExceptionsController {
         throw new NotFoundException("No existe el técnico con legajo 9999");
     }
 
+    @GetMapping("/test/conflict-details")
+    void conflictWithDetails() {
+        throw new ConflictException("WORK_ORDER_NOT_PENDING", "La orden 7 no está pendiente",
+                Map.of("status", "in-progress"));
+    }
+
+    @GetMapping("/test/conflict-empty-details")
+    void conflictWithEmptyDetails() {
+        throw new ConflictException("WORK_ORDER_NOT_PENDING", "La orden 7 no está pendiente", Map.of());
+    }
+
     @GetMapping("/test/conflict")
     void conflict() {
         throw new ConflictException("DUPLICATE_LEGAJO", "Ya existe un técnico con legajo 1001");

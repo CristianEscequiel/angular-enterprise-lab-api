@@ -70,6 +70,44 @@ completan `1001` y `1002` sobre las mismas filas (los usuarios `tecnico` y
 | Guardia mecánica      | `guardia`               | 1001     |
 | Preventivo eléctrico  | `preventivo-correctivo` | 1002     |
 
+## Máquinas y partes de desarrollo (seed)
+
+También solo con el perfil `dev`, con los mismos ids que el `db.json` del frontend
+(las órdenes de prueba de la spec 03 los referencian). Los ids nuevos siguen
+después del mayor: la próxima máquina es la `4` y la próxima parte, la `11`.
+
+| Id | Código   | Nombre              | Partes |
+| -- | -------- | ------------------- | ------ |
+| 1  | `ENV-01` | Envasadora línea 1  | 7      |
+| 2  | `SEL-02` | Selladora           | 3      |
+| 3  | `ROT-03` | Rotuladora          | 0      |
+
+Árbol de partes (el número es el id):
+
+```
+ENV-01  1 Mesa de transporte
+          ├─ 2 Cinta 1 ── 3 Motor de cinta ── 4 Rodamiento delantero
+          └─ 5 Cinta 2
+        6 Cabezal de sellado ── 7 Resistencia
+SEL-02  8 Cabezal térmico ── 9 Resistencia
+        10 Mordaza
+```
+
+## Órdenes de trabajo de desarrollo (seed)
+
+También solo con el perfil `dev`: las 32 órdenes del `db.json` del frontend (12
+`pending`, 9 `in-progress`, 9 `completed` y 2 `cancelled`), con sus `machineRef`,
+dueños y notas de cierre. Tres detalles del seed:
+
+- Las órdenes `1` a `29` conservan su id. Las tres que en `db.json` tienen un id
+  alfanumérico (`jgFCUkYKm4M`, `dW8mYm5vbQs` y `53mjVg8IKEk`, todas `pending`)
+  pasan a ser la `30`, la `31` y la `32`, porque los ids de las órdenes son
+  numéricos. La próxima orden que se cree es la `33`.
+- Los `createdAt` que `db.json` guarda sin zona horaria se interpretan como UTC.
+- Los dueños y autores de cierre `2` y `5` del frontend quedan a nombre de los
+  usuarios `tecnico` y `electricista` (los ids de usuario del backend no
+  coinciden con los del frontend); los nombres se conservan.
+
 ## Probar el login
 
 ```bash
@@ -106,6 +144,103 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/technicians
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/teams
 ```
 
+Máquinas y partes: cualquier usuario autenticado puede leer; escribir requiere
+`admin` o `teamleader`. Las partes de una máquina se piden y se crean por su
+máquina, y se editan y eliminan por su id:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/machines
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/machines/1/parts
+
+curl -X POST http://localhost:8080/machines/1/parts \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Tensor","parentId":"1"}'
+
+curl -X PATCH http://localhost:8080/parts/11 \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Tensor de cinta"}'
+```
+
+Órdenes de trabajo: cualquier usuario autenticado puede leer. Crear requiere
+`teamleader` (tipos `preventivo` y `correctivo`) o `produccion` (tipo
+`pronto-intervencion`); editar, `admin` o `teamleader`; eliminar, solo `admin`. El
+listado se pagina y se filtra por título, estado y prioridad:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/work-orders"
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/work-orders?page=2&size=5&title=motor&status=pending&priority=high"
+
+curl -X POST http://localhost:8080/work-orders \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"title":"Revisar motor","description":"Vibración fuera de rango",
+       "type":"correctivo","priority":"high",
+       "machineRef":{"machineId":"1","partId":"3","comment":"Hace ruido"}}'
+```
+
+La respuesta del listado es `{data, page, size, totalItems, totalPages}`. El
+servidor fija el estado inicial (`pending`), el `createdAt` y el `breadcrumb` (la
+ruta `máquina > parte > sub-parte`, que es una foto: no cambia si después se
+renombra o elimina la máquina o la parte).
+
+### Tomar, cerrar y liberar una orden
+
+El dueño sale del token, nunca del cuerpo. Un técnico toma solo órdenes que su
+equipo atiende (`tecnico`, de guardia: `pronto-intervencion`; `electricista`,
+preventivo-correctivo: `preventivo` y `correctivo`):
+
+```bash
+curl -X POST http://localhost:8080/work-orders/7/take -H "Authorization: Bearer $TECNICO"
+
+curl -X POST http://localhost:8080/work-orders/7/close \
+  -H "Authorization: Bearer $TECNICO" -H 'Content-Type: application/json' \
+  -d '{"outcome":"completed","comment":"Se reemplazó el rodamiento y se verificó el funcionamiento."}'
+
+# administrador o team leader devuelven una orden en progreso a pending
+curl -X POST http://localhost:8080/work-orders/7/release -H "Authorization: Bearer $ADMIN"
+```
+
+Un conflicto de estado responde `409` con el estado real y, si hay dueño, quién es:
+
+```json
+{ "code": "WORK_ORDER_NOT_PENDING", "message": "La orden 7 no está pendiente",
+  "timestamp": "2026-09-30T12:00:00Z", "path": "/work-orders/7/take",
+  "details": { "status": "in-progress", "takenById": "5", "takenByName": "Técnico Electricista Preventivo" } }
+```
+
+Los otros códigos son `WORK_ORDER_NOT_IN_PROGRESS` y `WORK_ORDER_TAKEN_BY_OTHER`.
+Una orden cerrada no se reabre.
+
+### Dashboard
+
+Dos lecturas, calculadas en el momento sobre `work_orders` (sin caché). El resumen lo ve
+cualquier usuario autenticado; la carga de trabajo, solo `admin` y `teamleader`:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/dashboard/summary"
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/dashboard/summary?from=2026-09-01&to=2026-09-29"
+curl -H "Authorization: Bearer $ADMIN" "http://localhost:8080/dashboard/workload"
+```
+
+Los conteos por estado, prioridad y tipo son sobre **todas** las órdenes. El período
+(`from` y `to`, `YYYY-MM-DD` en UTC, los dos incluidos; por defecto los 30 días que
+terminan hoy) solo afecta a `closedInPeriod` y a `averageResolutionMinutes` (minutos
+entre `createdAt` y el cierre, solo órdenes `completed`; `null` si no hay ninguna):
+
+```json
+{ "period": { "from": "2026-08-31", "to": "2026-09-29" },
+  "byStatus": { "pending": 12, "in-progress": 9, "completed": 9, "cancelled": 2 },
+  "byPriority": { "low": 0, "medium": 0, "high": 0 },
+  "byType": { "preventivo": 0, "correctivo": 0, "pronto-intervencion": 0 },
+  "total": 32, "open": 21,
+  "closedInPeriod": { "completed": 0, "cancelled": 0, "total": 0 },
+  "averageResolutionMinutes": null }
+```
+
+`workload` es un arreglo, por cantidad descendente y nombre ascendente:
+`[{ "takenById": "5", "takenByName": "Técnico Electricista Preventivo", "inProgress": 5 }]`.
+
 ## Endpoints
 
 | Endpoint             | Acceso      | Descripción                                   |
@@ -117,9 +252,26 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/teams
 | `POST /technicians`, `PUT /technicians/{legajo}` | administrador, team leader | Alta y edición (el legajo no se edita) |
 | `DELETE /technicians/{legajo}` | administrador | Baja; `409` si tiene login o es miembro de un equipo |
 | `GET`, `POST /teams`, `GET`, `PUT`, `DELETE /teams/{id}` | team leader | Equipos y sus miembros (por legajo) |
+| `GET /machines`, `GET /machines/{id}` | autenticado | Consulta de máquinas, con `partCount` |
+| `POST /machines`, `PUT /machines/{id}` | administrador, team leader | Alta y edición; el `code` se guarda recortado y en mayúsculas; `409 DUPLICATE_MACHINE_CODE` si ya existe |
+| `DELETE /machines/{id}` | administrador, team leader | Baja; `409 MACHINE_HAS_PARTS` si tiene partes |
+| `GET /machines/{machineId}/parts` | autenticado | Partes de la máquina como lista plana con `parentId`, en orden de creación |
+| `POST /machines/{machineId}/parts` | administrador, team leader | Alta de una parte de primer nivel o sub-parte; `400 PARENT_PART_NOT_FOUND` / `PARENT_PART_OTHER_MACHINE` |
+| `PATCH /parts/{id}` | administrador, team leader | Cambia solo el nombre; `400` si se intenta mover (`machineId` o `parentId` distintos) |
+| `DELETE /parts/{id}` | administrador, team leader | Baja; `409 PART_HAS_CHILDREN` si tiene sub-partes |
+| `GET /work-orders` | autenticado | Listado paginado (`page`, `size`, máx. 100) con filtros opcionales `title`, `status` y `priority`; `400` si un parámetro es inválido |
+| `GET /work-orders/{id}` | autenticado | Una orden completa, con `machineRef`, `takenBy` y `closingNote` si existen |
+| `POST /work-orders` | team leader (`preventivo`, `correctivo`), producción (`pronto-intervencion`) | Alta; `400` con `MACHINE_NOT_FOUND`, `PART_NOT_FOUND` o `PART_OTHER_MACHINE` si la referencia no resuelve |
+| `PUT /work-orders/{id}` | administrador, team leader | Edita título, descripción y prioridad, en cualquier estado; `400` si se intenta cambiar el tipo o la máquina |
+| `DELETE /work-orders/{id}` | administrador | Baja, en cualquier estado |
+| `POST /work-orders/{id}/take` | técnico de equipo habilitado | Toma una orden `pending` (pasa a `in-progress` a su nombre); `403` si su equipo no atiende el tipo; `409 WORK_ORDER_NOT_PENDING` |
+| `POST /work-orders/{id}/close` | técnico dueño de la orden | Cierra con `{outcome: `completed` o `cancelled`, comment}` (50 a 500 caracteres); `400`, `409 WORK_ORDER_NOT_IN_PROGRESS` o `WORK_ORDER_TAKEN_BY_OTHER` |
+| `POST /work-orders/{id}/release` | administrador, team leader | Devuelve una orden `in-progress` a `pending` sin dueño; `409 WORK_ORDER_NOT_IN_PROGRESS` |
+| `GET /dashboard/summary` | autenticado | Conteos por estado, prioridad y tipo, `total`, `open`, cerradas en el período y tiempo promedio de resolución; `from` y `to` opcionales; `400` si una fecha es inválida |
+| `GET /dashboard/workload` | administrador, team leader | Técnicos con órdenes `in-progress` y cuántas tiene cada uno |
 | `/swagger-ui.html`, `/v3/api-docs/**` | público | Documentación OpenAPI          |
 
-Los errores controlados responden siempre `{code, message, timestamp, path}`.
+Los errores controlados responden siempre `{code, message, timestamp, path}` (y `details` en `400` de validación y en los `409` de las transiciones de una orden).
 
 ## Tests
 
