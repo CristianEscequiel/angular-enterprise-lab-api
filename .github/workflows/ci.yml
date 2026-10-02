@@ -26,3 +26,42 @@ jobs:
 
       # `build` corre también las IT (Testcontainers usa el Docker del runner).
       - run: ./gradlew build
+
+  # Publica la imagen en GHCR. Solo en push a master (no en PRs) y solo si
+  # `build` (tests incluidos) terminó en verde.
+  docker:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # necesario para subir a ghcr.io con GITHUB_TOKEN
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # GHCR exige nombres en minúsculas; esta acción lo resuelve sola
+      # (el owner "CristianEscequiel" tiene mayúsculas).
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
