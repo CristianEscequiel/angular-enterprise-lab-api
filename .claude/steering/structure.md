@@ -7,17 +7,22 @@ inclusion: always
 ## Organización de carpetas
 ```
 angular-enterprise-lab-api/
-├── steering/                  # este contexto (product/tech/structure)
-├── specs/<n>-<nombre>/        # requirements.md, design.md, tasks.md
+├── .claude/
+│   ├── steering/              # este contexto (product/tech/structure)
+│   └── specs/<n>-<nombre>/    # requirements.md, design.md, tasks.md (ROADMAP.md: mapa de specs)
 ├── src/main/java/com/enterpriselab/api/
 │   ├── auth/
 │   │   ├── web/                # AuthController, DTOs de request/response
 │   │   ├── domain/              # UserRepository (interfaz), servicios, excepciones
 │   │   ├── persistence/         # UserEntity, JPA repository, mapper
-│   │   └── security/            # JwtFilter, SecurityConfig, PasswordEncoder config
+│   │   └── security/            # SecurityConfig, JwtConfig, PasswordEncoder config
 │   ├── workorders/
 │   │   ├── web/ | domain/ | persistence/
 │   ├── maintenance/            # técnicos + equipos, misma razón que en el frontend
+│   │   ├── web/ | domain/ | persistence/
+│   ├── machines/               # máquinas + árbol de partes (feature propia en el frontend)
+│   │   ├── web/ | domain/ | persistence/
+│   ├── dashboard/              # indicadores: lecturas agregadas sobre workorders
 │   │   ├── web/ | domain/ | persistence/
 │   ├── shared/                  # RestExceptionHandler global, tipos de error, paginación
 │   └── ApiApplication.java

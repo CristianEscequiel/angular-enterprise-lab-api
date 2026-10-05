@@ -42,6 +42,30 @@ API se acuerdan por spec y se documentan en OpenAPI.
 - Un módulo de dominio por feature del frontend (`auth`, `workorders`,
   `maintenance`), no una sola carpeta gigante de entities.
 
+## Orden de evaluación de errores HTTP
+Fijado en la spec 00 y confirmado en la spec 01 — aplica a todo endpoint
+protegido de cualquier spec futura (`2xx`, `3xx`, `4xx`), no hace falta
+redecidirlo por spec:
+
+1. **`401`** — sin token, token inválido, expirado o mal firmado (filtro de
+   seguridad, antes de llegar al controller).
+2. **`403`** — token válido pero el rol no tiene permiso sobre la
+   operación, incluso si además hay un problema de formato en la request
+   (el chequeo de rol no espera a que la request esté bien formada para
+   negarse).
+3. **`400`** — request de un usuario autorizado pero mal formada
+   (validación de campos, formato de un identificador en la URL o el
+   body).
+4. **`404`** — request bien formada y autorizada, pero el recurso no
+   existe.
+5. **`409`** — request válida, autorizada, sobre un recurso que existe,
+   pero la operación viola una regla de integridad (duplicado, referencia
+   inexistente, recurso en uso).
+
+Un formato de identificador inválido en la URL (ej. un `legajo` con
+letras) nunca cae en `404` — es `400`, salvo que un rol sin permiso lo
+intercepte antes con `403` (regla 2).
+
 ## Restricciones técnicas
 - El contrato de API debe poder ser consumido sin cambios de arquitectura
   grandes en `WorkOrdersService`, `TechniciansService` y `TeamsService`
