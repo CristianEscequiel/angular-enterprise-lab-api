@@ -65,3 +65,29 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Despliega en el servidor: le pide al script restringido del VPS que use la imagen
+  # recién publicada (tag sha-xxxxxxx, el mismo que generó metadata-action).
+  deploy:
+    needs: docker
+    # DEPLOY_ENABLED (variable del repo) permite apagar el deploy hasta que el servidor esté listo.
+    if: github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    # Un deploy a la vez por servicio; si llega otro push, espera (no se cancela a mitad).
+    concurrency:
+      group: deploy-lab-api
+      cancel-in-progress: false
+    steps:
+      - name: Desplegar en el servidor
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Huella del servidor fijada de antemano: sin StrictHostKeyChecking=no.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # El servidor ignora cualquier comando que no sea "<servicio> <tag>".
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes "root@$DEPLOY_HOST" "api sha-${GITHUB_SHA::7}"
