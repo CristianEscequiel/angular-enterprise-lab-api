@@ -90,4 +90,4 @@ jobs:
           # Huella del servidor fijada de antemano: sin StrictHostKeyChecking=no.
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           # El servidor ignora cualquier comando que no sea "<servicio> <tag>".
-          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes "root@$DEPLOY_HOST" "api sha-${GITHUB_SHA::7}"
+          ssh -p 5068 -i ~/.ssh/id_deploy -o IdentitiesOnly=yes "root@$DEPLOY_HOST" "api sha-${GITHUB_SHA::7}"
