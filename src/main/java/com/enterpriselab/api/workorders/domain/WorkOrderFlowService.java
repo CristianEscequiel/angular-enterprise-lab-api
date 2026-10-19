@@ -20,7 +20,7 @@ import com.enterpriselab.api.shared.domain.NumericId;
 import com.enterpriselab.api.shared.domain.ValidationFailedException;
 
 /**
- * Tomar, cerrar y liberar una orden (spec 04). Orden de evaluación (design.md
+ * Tomar, cerrar, liberar y cancelar una orden pendiente (spec 04 y enmienda 04-A). Orden de evaluación (design.md
  * §4.1): usuario ({@code 401}) → rol ({@code 403}) → formato del cuerpo
  * ({@code 400}) → existencia ({@code 404}) → equipo ({@code 403}) → estado y dueño
  * ({@code 409}) → actualización condicional. Si esta toca 0 filas, otra operación
@@ -96,6 +96,18 @@ public class WorkOrderFlowService {
                 throw conflict(NOT_IN_PROGRESS, "La orden " + order.id() + " no está en progreso", order);
             }
             return orders.release(order.id());
+        });
+    }
+
+    public WorkOrder cancel(String username, String id) {
+        User user = auth.currentUser(username);
+        WorkOrderPermissions.requireCancel(user.role());
+
+        return attempt(id, order -> {
+            if (order.status() != WorkOrderStatus.PENDING) {
+                throw conflict(NOT_PENDING, "La orden " + order.id() + " no está pendiente", order);
+            }
+            return orders.cancel(order.id(), new Cancellation(user.id(), user.displayName(), now()));
         });
     }
 

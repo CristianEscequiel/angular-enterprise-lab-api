@@ -140,6 +140,25 @@ class DashboardStatisticsAdapterIT {
         assertThat(closed.cancelled()).isEqualTo(1);
     }
 
+    @Test
+    void req45_aCancelledOrderWithoutOwnerNorCommentIsCountedByItsClosedAt() {
+        migrate(false);
+        users();
+        cancelledWithoutOwner(ana, "2026-09-10T09:00:00Z");
+        cancelledWithoutOwner(ana, "2026-08-31T23:59:59Z");
+        cancelledWithoutOwner(ana, "2026-09-30T00:00:00Z");
+        closed("completed", "low", "preventivo", beto, "2026-09-10T08:00:00Z", "2026-09-10T09:00:00Z");
+
+        StatisticsSnapshot snapshot = adapter.snapshot(FROM, TO_EXCLUSIVE);
+
+        assertThat(snapshot.closed().cancelled()).isEqualTo(1);
+        assertThat(snapshot.closed().completed()).isEqualTo(1);
+        assertThat(snapshot.closed().averageResolutionMinutes()).isEqualByComparingTo("60");
+        assertThat(snapshot.counts().stream().filter(c -> c.status() == WorkOrderStatus.CANCELLED)
+                .mapToLong(OrderCount::count).sum()).isEqualTo(3);
+        assertThat(adapter.inProgressByOwner()).isEmpty();
+    }
+
     // --- Promedio (REQ-11, REQ-12) ---------------------------------------------------------------------
 
     @Test
@@ -246,6 +265,14 @@ class DashboardStatisticsAdapterIT {
                 + "closing_author_name, closed_at) values ('t', 'Descripción de prueba', 1, 'M', ?, ?, ?, ?, ?, "
                 + "'Dueño', ?, 'Nota de cierre', ?, 'Dueño', ?)", type, priority, status, at(createdAt), ownerId,
                 at(createdAt), ownerId, at(closedAt));
+    }
+
+    /** Una cancelación de la enmienda 04-A: sin dueño ni comentario, con autor y hora de cierre. */
+    private void cancelledWithoutOwner(long authorId, String closedAt) {
+        jdbc.update("insert into work_orders (title, description, machine_id, breadcrumb, type, priority, status, "
+                + "created_at, closing_author_id, closing_author_name, closed_at) values ('t', "
+                + "'Descripción de prueba', 1, 'M', 'preventivo', 'low', 'cancelled', now(), ?, 'Autor', ?)",
+                authorId, at(closedAt));
     }
 
     private static OffsetDateTime at(String instant) {

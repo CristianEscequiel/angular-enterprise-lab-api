@@ -513,6 +513,133 @@ class WorkOrderFlowServiceTest {
     }
 
     // =====================================================================================================
+    // cancel (enmienda 04-A)
+    // =====================================================================================================
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMINISTRADOR", "TEAM_LEADER_MANTENIMIENTO"})
+    void req32_cancelOfAPendingOrderPassesTheTokenUserAndTheClockTimeToThePort(Role role) {
+        User user = nonTechnician(role);
+        givenUser(user);
+        WorkOrder pending = order(7L, WorkOrderType.PREVENTIVO, WorkOrderStatus.PENDING, null);
+        WorkOrder cancelled = order(7L, WorkOrderType.PREVENTIVO, WorkOrderStatus.CANCELLED, null);
+        when(orders.findById(7L)).thenReturn(Optional.of(pending));
+        when(orders.cancel(anyLong(), any())).thenReturn(Optional.of(cancelled));
+
+        assertThat(service.cancel("x", "7")).isSameAs(cancelled);
+
+        ArgumentCaptor<Cancellation> by = ArgumentCaptor.forClass(Cancellation.class);
+        verify(orders).cancel(org.mockito.ArgumentMatchers.eq(7L), by.capture());
+        assertThat(by.getValue()).isEqualTo(new Cancellation(user.id(), user.displayName(), NOW_MILLIS));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"TECNICO", "PERSONAL_PRODUCCION"})
+    void req34_req38_cancelIsForbiddenWithoutReadingTheOrder(Role role) {
+        givenUser(role == Role.TECNICO ? GUARDIA : nonTechnician(role));
+
+        assertThatThrownBy(() -> service.cancel("x", "7")).isInstanceOf(ForbiddenOperationException.class);
+        assertThatThrownBy(() -> service.cancel("x", "abc")).isInstanceOf(ForbiddenOperationException.class);
+        verifyNoMoreInteractions(orders);
+    }
+
+    @Test
+    void req35_cancelOfATokenWithAMissingUserIsUnauthorized() {
+        when(auth.currentUser("ghost")).thenThrow(new UnknownSessionUserException("no existe"));
+
+        assertThatThrownBy(() -> service.cancel("ghost", "7")).isInstanceOf(UnknownSessionUserException.class);
+        verifyNoMoreInteractions(orders);
+    }
+
+    @Test
+    void req36_cancelOfAMissingOrNonNumericIdIsNotFound() {
+        givenUser(admin());
+        when(orders.findById(7L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.cancel("admin", "7")).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> service.cancel("admin", "abc")).isInstanceOf(NotFoundException.class);
+        verify(orders, never()).cancel(anyLong(), any());
+    }
+
+    @Test
+    void req37_cancelOfAnOrderThatIsNotPendingIsAConflictWithTheRealState() {
+        givenUser(admin());
+        TakenBy owner = new TakenBy(5L, "Dueño", NOW_MILLIS);
+        for (WorkOrder order : new WorkOrder[] {
+                order(7L, WorkOrderType.PREVENTIVO, WorkOrderStatus.IN_PROGRESS, owner),
+                closed(7L, WorkOrderStatus.COMPLETED, owner),
+                closed(7L, WorkOrderStatus.CANCELLED, owner)}) {
+            when(orders.findById(7L)).thenReturn(Optional.of(order));
+
+            ConflictException conflict = catchThrowableOfType(ConflictException.class,
+                    () -> service.cancel("admin", "7"));
+
+            assertThat(conflict.code()).isEqualTo("WORK_ORDER_NOT_PENDING");
+            assertThat(conflict.details()).containsEntry("status", order.status().toValue())
+                    .containsEntry("takenById", "5").containsEntry("takenByName", "Dueño");
+        }
+        verify(orders, never()).cancel(anyLong(), any());
+    }
+
+    @Test
+    void req39_cancelOfAnOrderAlreadyCancelledWithoutOwnerHasNoTakenByInTheDetails() {
+        givenUser(admin());
+        when(orders.findById(7L)).thenReturn(Optional.of(
+                order(7L, WorkOrderType.PREVENTIVO, WorkOrderStatus.CANCELLED, null)));
+
+        ConflictException conflict = catchThrowableOfType(ConflictException.class,
+                () -> service.cancel("admin", "7"));
+
+        assertThat(conflict.code()).isEqualTo("WORK_ORDER_NOT_PENDING");
+        assertThat(conflict.details()).containsExactlyEntriesOf(Map.of("status", "cancelled"));
+        verify(orders, never()).cancel(anyLong(), any());
+    }
+
+    @Test
+    void req48_closeAndReleaseOfAnOrderCancelledWithoutOwnerAreNotInProgress() {
+        WorkOrder cancelled = order(7L, WorkOrderType.PRONTO_INTERVENCION, WorkOrderStatus.CANCELLED, null);
+        when(orders.findById(7L)).thenReturn(Optional.of(cancelled));
+
+        givenUser(GUARDIA);
+        ConflictException onClose = catchThrowableOfType(ConflictException.class,
+                () -> service.close("tecnico", "7", validClose()));
+        givenUser(admin());
+        ConflictException onRelease = catchThrowableOfType(ConflictException.class,
+                () -> service.release("admin", "7"));
+
+        assertThat(onClose.code()).isEqualTo("WORK_ORDER_NOT_IN_PROGRESS");
+        assertThat(onRelease.code()).isEqualTo("WORK_ORDER_NOT_IN_PROGRESS");
+        verify(orders, never()).close(anyLong(), anyLong(), any(), any());
+        verify(orders, never()).release(anyLong());
+    }
+
+    @Test
+    void req40_cancelThatLosesTheRaceReportsTheRealState() {
+        givenUser(admin());
+        WorkOrder pending = order(7L, WorkOrderType.PREVENTIVO, WorkOrderStatus.PENDING, null);
+        WorkOrder taken = order(7L, WorkOrderType.PREVENTIVO, WorkOrderStatus.IN_PROGRESS,
+                new TakenBy(6L, "Otro", NOW_MILLIS));
+        when(orders.findById(7L)).thenReturn(Optional.of(pending), Optional.of(taken));
+        when(orders.cancel(anyLong(), any())).thenReturn(Optional.empty());
+
+        ConflictException conflict = catchThrowableOfType(ConflictException.class,
+                () -> service.cancel("admin", "7"));
+
+        assertThat(conflict.code()).isEqualTo("WORK_ORDER_NOT_PENDING");
+        assertThat(conflict.details()).containsEntry("status", "in-progress").containsEntry("takenById", "6");
+    }
+
+    @Test
+    void req40_cancelThatLosesTheRaceToADeleteIsNotFound() {
+        givenUser(admin());
+        when(orders.findById(7L)).thenReturn(Optional.of(
+                order(7L, WorkOrderType.PREVENTIVO, WorkOrderStatus.PENDING, null)), Optional.empty());
+        when(orders.cancel(anyLong(), any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.cancel("admin", "7")).isInstanceOf(NotFoundException.class);
+    }
+
+    // =====================================================================================================
     // Ayudas
     // =====================================================================================================
 

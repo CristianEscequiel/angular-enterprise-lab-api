@@ -435,8 +435,229 @@ class WorkOrderFlowControllerIT extends AbstractPostgresIT {
     }
 
     // =====================================================================================================
+    // cancel (enmienda 04-A)
+    // =====================================================================================================
+
+    @Test
+    void req32_administratorAndTeamLeaderCancelAPendingOrderAndTheRestOfTheFieldsStay() {
+        for (String token : List.of(admin(), teamLeader())) {
+            String id = createPending("preventivo");
+            Map<String, Object> before = new HashMap<>(get(id, admin()).getBody());
+
+            ResponseEntity<Map> response = cancel(id, token);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            Map<String, Object> body = response.getBody();
+            assertThat(body.get("status")).isEqualTo("cancelled");
+            assertThat(body).containsEntry("takenBy", null).doesNotContainKey("closingNote");
+            Map<String, Object> expected = new HashMap<>(before);
+            expected.put("status", "cancelled");
+            assertThat(body).containsAllEntriesOf(expected);
+            assertThat(statusOf(id)).isEqualTo("cancelled");
+        }
+    }
+
+    @Test
+    void req33_theBodyOfCancelIsIgnoredWhateverItIs() {
+        for (Object body : List.of(Map.of("status", "completed", "takenBy", Map.of("id", "1"),
+                "closingNote", Map.of("comment", "x"), "comment", "x"))) {
+            String id = createPending("correctivo");
+            ResponseEntity<Map> response = call(HttpMethod.POST, "/work-orders/" + id + "/cancel", admin(), body);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().get("status")).isEqualTo("cancelled");
+            assertThat(response.getBody()).containsEntry("takenBy", null).doesNotContainKey("closingNote");
+        }
+        String malformed = createPending("correctivo");
+        assertThat(rawCancel(malformed, MediaType.APPLICATION_JSON, "{no es json").getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(statusOf(malformed)).isEqualTo("cancelled");
+        String plain = createPending("correctivo");
+        ResponseEntity<Map> text = rawCancel(plain, MediaType.TEXT_PLAIN, "hola");
+        assertThat(text.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(text.getBody().get("status")).isEqualTo("cancelled");
+        assertThat(statusOf(plain)).isEqualTo("cancelled");
+    }
+
+    @Test
+    void req34_techniciansEvenTheOwnerAndProductionCannotCancelAndTheOrderStaysIntact() {
+        String pending = createPending("pronto-intervencion");
+        String mine = createPending("pronto-intervencion");
+        take(mine, tecnico());
+
+        for (String token : List.of(tecnico(), electricista(), production())) {
+            assertThat(cancel(pending, token).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        }
+        assertThat(cancel(mine, tecnico()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(statusOf(pending)).isEqualTo("pending");
+        assertThat(statusOf(mine)).isEqualTo("in-progress");
+        assertThat(ownerOf(mine)).isEqualTo(userId("tecnico"));
+    }
+
+    @Test
+    void req35_cancelWithoutTokenOrWithAnInvalidTokenIs401AndTheOrderStaysIntact() {
+        String id = createPending("preventivo");
+
+        ResponseEntity<Map> without = restTemplate.exchange("/work-orders/" + id + "/cancel", HttpMethod.POST,
+                new HttpEntity<>(new HttpHeaders()), Map.class);
+        ResponseEntity<Map> invalid = cancel(id, "token.invalido.xyz");
+
+        for (ResponseEntity<Map> response : List.of(without, invalid)) {
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertThat(response.getBody()).containsEntry("code", "UNAUTHORIZED");
+        }
+        assertThat(statusOf(id)).isEqualTo("pending");
+    }
+
+    @Test
+    void req36_cancelOfAnUnknownOrNonNumericIdIsNotFound() {
+        for (String id : List.of("999999999", "abc", "1.5")) {
+            assertNotFound(cancel(id, admin()));
+            assertNotFound(cancel(id, teamLeader()));
+        }
+    }
+
+    @Test
+    void req37_cancelOfAnOrderThatIsNotPendingIsAConflictWithTheRealStateAndNothingChanges() {
+        String inProgress = createPending("pronto-intervencion");
+        take(inProgress, tecnico());
+        String completed = createPending("pronto-intervencion");
+        force(completed, "completed", otherGuardiaId, COMMENT);
+        String cancelledByTechnician = createPending("pronto-intervencion");
+        force(cancelledByTechnician, "cancelled", otherGuardiaId, COMMENT);
+        String cancelledByCancel = createPending("pronto-intervencion");
+        cancel(cancelledByCancel, admin());
+
+        for (String id : List.of(inProgress, completed, cancelledByTechnician, cancelledByCancel)) {
+            Map<String, Object> before = get(id, admin()).getBody();
+
+            ResponseEntity<Map> response = cancel(id, id.equals(inProgress) ? teamLeader() : admin());
+
+            assertConflict(response, "WORK_ORDER_NOT_PENDING", (String) before.get("status"));
+            assertThat(get(id, admin()).getBody()).isEqualTo(before);
+        }
+        ResponseEntity<Map> detail = cancel(inProgress, admin());
+        assertThat((Map) detail.getBody().get("details")).containsEntry("takenById", String.valueOf(userId("tecnico")))
+                .containsEntry("takenByName", "Técnico Mecánico de Guardia");
+        assertThat(ownerOf(inProgress)).isEqualTo(userId("tecnico"));
+    }
+
+    @Test
+    void req38_theRoleIsCheckedBeforeTheStateAndBeforeTheExistence() {
+        String inProgress = createPending("pronto-intervencion");
+        take(inProgress, tecnico());
+        String completed = createPending("pronto-intervencion");
+        force(completed, "completed", otherGuardiaId, COMMENT);
+
+        for (String token : List.of(tecnico(), production())) {
+            assertThat(cancel(inProgress, token).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(cancel(completed, token).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(cancel("999999999", token).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(cancel("abc", token).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        }
+        // y 404 sobre 409 para quien sí tiene permiso
+        assertNotFound(cancel("999999999", admin()));
+    }
+
+    @Test
+    void req39_aCancelledOrderCannotBeCancelledAgainNorTakenAndHasNoOwnerInTheDetails() {
+        String id = createPending("pronto-intervencion");
+        cancel(id, admin());
+        Map<String, Object> before = get(id, admin()).getBody();
+
+        ResponseEntity<Map> again = cancel(id, teamLeader());
+        ResponseEntity<Map> retake = take(id, tecnico());
+
+        for (ResponseEntity<Map> response : List.of(again, retake)) {
+            assertConflict(response, "WORK_ORDER_NOT_PENDING", "cancelled");
+            assertThat((Map) response.getBody().get("details")).doesNotContainKeys("takenById", "takenByName");
+        }
+        assertThat(get(id, admin()).getBody()).isEqualTo(before);
+        assertThat(ownerOf(id)).isNull();
+    }
+
+    @Test
+    void req48_aCancelledOrderCannotBeClosedNorReleased() {
+        String id = createPending("pronto-intervencion");
+        cancel(id, admin());
+        Map<String, Object> before = get(id, admin()).getBody();
+
+        ResponseEntity<Map> close = close(id, tecnico(), validClose());
+        ResponseEntity<Map> release = release(id, admin());
+
+        assertConflict(close, "WORK_ORDER_NOT_IN_PROGRESS", "cancelled");
+        assertConflict(release, "WORK_ORDER_NOT_IN_PROGRESS", "cancelled");
+        assertThat(get(id, admin()).getBody()).isEqualTo(before);
+    }
+
+    @Test
+    void req42_cancelStoresTheTokenUserAndTheServerTimeAndExposesNoClosingNote() {
+        String id = createPending("preventivo");
+
+        assertThat(cancel(id, teamLeader()).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        Map<String, Object> row = jdbcTemplate.queryForMap("select closing_author_id, closing_author_name, "
+                + "closing_comment, taken_by_id, closed_at between now() - interval '1 minute' "
+                + "and now() + interval '1 minute' as recent from work_orders where id = ?", Long.valueOf(id));
+        assertThat(row.get("closing_author_id")).isEqualTo(userId("teamleader"));
+        assertThat(row.get("closing_author_name")).isEqualTo(jdbcTemplate.queryForObject(
+                "select display_name from users where username = 'teamleader'", String.class));
+        assertThat(row.get("closing_comment")).isNull();
+        assertThat(row.get("taken_by_id")).isNull();
+        assertThat(row.get("recent")).isEqualTo(true);
+        assertThat(get(id, admin()).getBody()).doesNotContainKey("closingNote");
+        String title = (String) get(id, admin()).getBody().get("title");
+        assertThat(listed(title, "cancelled")).hasSize(1).allSatisfy(o -> assertThat(o).doesNotContainKey("closingNote"));
+    }
+
+    @Test
+    void req43_theTechnicianCloseAsCancelledStillRequiresTheCommentAndReturnsTheNote() {
+        String id = createPending("pronto-intervencion");
+        take(id, tecnico());
+
+        assertValidation(close(id, tecnico(), Map.of("outcome", "cancelled")), "comment");
+        assertValidation(close(id, tecnico(), Map.of("outcome", "cancelled", "comment", "a".repeat(49))), "comment");
+        ResponseEntity<Map> response = close(id, tecnico(), Map.of("outcome", "cancelled", "comment", COMMENT));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().get("status")).isEqualTo("cancelled");
+        assertThat((Map) response.getBody().get("closingNote")).containsEntry("comment", COMMENT);
+        assertThat(response.getBody().get("takenBy")).isNotNull();
+    }
+
+    @Test
+    void req44_theDetailTheListAndTheStatusFilterReflectTheCancellation() {
+        String id = createPending("preventivo");
+        String title = (String) get(id, admin()).getBody().get("title");
+        assertThat(listed(title, "pending")).hasSize(1);
+
+        cancel(id, admin());
+
+        Map<String, Object> detail = get(id, production()).getBody();
+        assertThat(detail.get("status")).isEqualTo("cancelled");
+        assertThat(detail).containsEntry("takenBy", null);
+        assertThat(listed(title, "cancelled")).hasSize(1)
+                .allSatisfy(o -> assertThat(o).containsEntry("status", "cancelled").containsEntry("takenBy", null));
+        assertThat(listed(title, "pending")).isEmpty();
+        ResponseEntity<Map> all = restTemplate.exchange("/work-orders?title={t}", HttpMethod.GET,
+                new HttpEntity<>(headers(admin())), Map.class, title);
+        assertThat((List<Map<String, Object>>) all.getBody().get("data")).hasSize(1)
+                .allSatisfy(o -> assertThat(o).containsEntry("status", "cancelled").containsEntry("takenBy", null));
+    }
+
+    // =====================================================================================================
     // Ayudas
     // =====================================================================================================
+
+    private ResponseEntity<Map> cancel(String id, String token) {
+        return call(HttpMethod.POST, "/work-orders/" + id + "/cancel", token, null);
+    }
+
+    private ResponseEntity<Map> rawCancel(String id, MediaType contentType, String body) {
+        HttpHeaders headers = headers(admin());
+        headers.setContentType(contentType);
+        return restTemplate.exchange("/work-orders/" + id + "/cancel", HttpMethod.POST,
+                new HttpEntity<>(body, headers), Map.class);
+    }
 
     /** Crea una orden pendiente con el rol que puede crear ese tipo y le pone un título propio. */
     private String createPending(String type) {

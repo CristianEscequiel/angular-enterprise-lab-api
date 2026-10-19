@@ -301,3 +301,220 @@ No se agregan requisitos: todo lo que apareció al diseñar ya estaba cubierto p
 | 29 | §3 (el adaptador relee en la transacción), §5 |
 | 30 | §2 |
 | 31 | §1 (OpenAPI), §5 |
+
+---
+
+# Enmienda 04-A — Diseño: cancelar una orden pendiente
+
+Cubre REQ-32 a REQ-48 de `requirements.md`. Sigue el patrón de `release`: mismo
+controller, mismo servicio de flujo, mismo `UPDATE` condicional. Todo lo de §1 a §9
+vale igual; acá solo lo que cambia.
+
+## 10. Decisiones técnicas
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Módulo y servicio | `WorkOrderFlowService.cancel(username, id)`; endpoint en `WorkOrderController`. Sin clases de servicio nuevas | Es una transición más del flujo (§1) |
+| Permiso | `WorkOrderPermissions.requireCancel(rol)` = `ADMINISTRADOR`, `TEAM_LEADER_MANTENIMIENTO` vía `AccessPolicy.requireRole`, el mismo mecanismo que `requireRelease` y `requireEdit` | Pedido: no inventar uno nuevo. Método propio y no reutilizar `requireRelease`, para que cada acción cambie sola |
+| Código y excepción de `409` | Se reutilizan `NOT_PENDING` y el ayudante `conflict(...)` de `take` | REQ-37. `details` ya trae `status` y, si hay dueño, `takenById`/`takenByName` |
+| Atomicidad | `UPDATE ... WHERE id = :id AND status = 'pending'`; 0 filas → el servicio relee y reevalúa con el mismo `attempt(...)` (hasta 3 intentos) | REQ-40, mismo razonamiento que §1/§6: `take` y `cancel` compiten por el mismo `WHERE status = 'pending'` y solo uno toca la fila |
+| Puerto | `Optional<WorkOrder> cancel(long id, Cancellation by)` con el record `Cancellation(long authorId, String authorName, Instant at)` en `domain` | No se reutiliza `ClosingNote` con comentario nulo: esa clase promete un comentario (§1 de la enmienda) |
+| Qué escribe | `status = 'cancelled'`, `closing_author_id`, `closing_author_name`, `closed_at`. No toca `taken_*` ni `closing_comment` | REQ-32 y REQ-42. `closed_at` es lo que cuenta el dashboard |
+| Mapper | `WorkOrderMapper.toDomain` arma la `ClosingNote` solo si `closing_comment` no es nulo (hoy lo decide `closing_author_id`) | La nota del contrato siempre lleva comentario (REQ-32, 42, 44). Una cancelación sin comentario queda sin `closingNote` en toda respuesta |
+| Cuerpo | `cancel` no declara `@RequestBody` | REQ-33: no se parsea, así que un JSON malformado o un `Content-Type` ajeno no llegan a ningún código ni dan `400` |
+| Entity | `WorkOrderEntity` sin cambios (`updatable = false` se mantiene); solo suma la consulta `@Modifying` | §1, "Mutación en el entity" |
+| Dashboard | **Sin cambios de código.** `CLOSED_SQL` filtra por `status in ('completed','cancelled')` y `closed_at`; el promedio se lee solo de la fila `completed`; no usa dueño ni comentario | REQ-45. Una IT lo fija |
+| OpenAPI | `@Operation` y `@ApiResponses` (`200`, `404`, `409`) como `release`; los `401`/`403` los agrega el mismo mecanismo que en `take`/`release` | REQ-46 |
+| Frontend | Fuera de alcance. `verify-contract.mjs` (spec 018, T11) del frontend necesita sumar el endpoint: se le avisa al usuario, no se toca | Pedido del usuario |
+
+## 11. Migración `V9`
+
+`V9__work_orders_cancel_pending.sql` (corre en todos los perfiles, no modifica filas;
+se reemplazan los dos `CHECK` de `V8` que cambian, y `work_orders_owner_group_check`
+queda):
+
+```sql
+ALTER TABLE work_orders
+    DROP CONSTRAINT work_orders_closing_group_check,
+    DROP CONSTRAINT work_orders_state_invariants_check;
+
+ALTER TABLE work_orders
+    ADD CONSTRAINT work_orders_closing_group_check CHECK (
+        (closing_author_id IS NULL AND closing_author_name IS NULL
+            AND closing_comment IS NULL AND closed_at IS NULL)
+        OR (closing_author_id IS NOT NULL AND closing_author_name IS NOT NULL
+            AND closed_at IS NOT NULL)),
+    ADD CONSTRAINT work_orders_state_invariants_check CHECK (
+        (status = 'pending'     AND taken_by_id IS NULL     AND closing_author_id IS NULL)
+     OR (status = 'in-progress' AND taken_by_id IS NOT NULL AND closing_author_id IS NULL)
+     OR (status IN ('completed', 'cancelled')
+         AND taken_by_id IS NOT NULL AND closing_author_id IS NOT NULL
+         AND closing_comment IS NOT NULL AND closing_author_id = taken_by_id)
+     OR (status = 'cancelled'
+         AND taken_by_id IS NULL AND closing_author_id IS NOT NULL
+         AND closing_comment IS NULL AND closed_at IS NOT NULL));
+```
+
+Cómo cumple REQ-41 y REQ-47:
+
+| Combinación | Rama que decide |
+|---|---|
+| `cancelled` sin dueño, con autor y `closed_at`, sin comentario | 4.ª rama: **aceptada** (REQ-41) |
+| `pending`/`in-progress` con nota | 1.ª/2.ª rama exigen `closing_author_id IS NULL`; el grupo ya impide un `closed_at` suelto |
+| `completed` sin dueño, sin comentario o con autor ≠ dueño | 3.ª rama |
+| `cancelled` con dueño sin comentario, o con autor ≠ dueño | 3.ª rama (la 4.ª pide dueño nulo) |
+| `cancelled` sin dueño con comentario | 4.ª rama (`closing_comment IS NULL`) |
+| `cancelled` sin dueño y sin autor / sin `closed_at` | 4.ª rama; el grupo exige `closed_at` con el autor |
+
+- Un comentario sin autor lo impide el grupo (`closing_comment` solo puede ser no nulo
+  con el autor completo). Un autor con `closed_at` nulo, también.
+- Las 32 filas de `V7_1` cumplen las ramas 1 a 3, que son las de `V8`: no se modifican.
+  Una IT lo afirma sobre una base migrada de `V7` a `V9`.
+
+## 12. Componentes y reglas
+
+```
+workorders/
+├── domain/       WorkOrderFlowService (+cancel), WorkOrderPermissions (+requireCancel),
+│                 WorkOrderRepository (+cancel), Cancellation (record nuevo)
+├── persistence/  WorkOrderJpaRepository (+cancel @Modifying), WorkOrderRepositoryAdapter (+cancel),
+│                 WorkOrderMapper (la nota depende de closing_comment)
+└── web/          WorkOrderController (+cancel)
+db/migration/     V9__work_orders_cancel_pending.sql
+```
+
+```java
+// WorkOrderFlowService
+public WorkOrder cancel(String username, String id) {
+    User user = auth.currentUser(username);                       // 401
+    WorkOrderPermissions.requireCancel(user.role());              // 403
+    return attempt(id, order -> {                                 // 404 (id no numérico o inexistente)
+        if (order.status() != WorkOrderStatus.PENDING) {          // 409
+            throw conflict(NOT_PENDING, "La orden " + order.id() + " no está pendiente", order);
+        }
+        return orders.cancel(order.id(), new Cancellation(user.id(), user.displayName(), now()));
+    });
+}
+
+// WorkOrderRepository
+Optional<WorkOrder> cancel(long id, Cancellation by);   // pending -> cancelled; vacío si ya no está pending
+
+// WorkOrderJpaRepository
+@Modifying(flushAutomatically = true, clearAutomatically = true)
+@Query("update WorkOrderEntity o set o.status = 'cancelled', o.closingAuthorId = :userId, "
+     + "o.closingAuthorName = :name, o.closedAt = :at where o.id = :id and o.status = 'pending'")
+int cancel(@Param("id") long id, @Param("userId") long userId, @Param("name") String name,
+        @Param("at") Instant at);
+```
+
+Orden de evaluación (sigue §4.1): `401 → 403 → 404 → 409 → UPDATE condicional`. No hay
+paso de formato (`400`) ni de equipo. El permiso va antes de leer la orden, así un
+rol sin permiso recibe `403` y no se entera de si existe ni de su estado (REQ-38).
+
+Casos que salen de las reglas existentes, sin código aparte:
+
+- **REQ-39:** `cancel` y `take` sobre una cancelada leen `cancelled` ≠ `pending` →
+  `NOT_PENDING` con `details.status = cancelled`; sin dueño no hay `takenById`.
+- **REQ-48:** `close` y `release` leen `cancelled` ≠ `in-progress` →
+  `NOT_IN_PROGRESS`. En `close` el estado se evalúa antes que el dueño
+  (`WorkOrderFlowService:79-84`), así que no sale `TAKEN_BY_OTHER` con `takenBy` nulo.
+- **REQ-43:** `close` no cambia; sigue exigiendo comentario y devuelve la nota.
+- **REQ-44:** `WorkOrderResponse` ya serializa `takenBy` como `null` y omite una
+  `closingNote` nula; el mapper la deja nula (tabla arriba).
+
+**Web:**
+
+```java
+@PostMapping("/{id}/cancel")
+@Operation(summary = "Cancela una orden pendiente",
+        description = "Administrador y team leader, solo sobre una orden pending. Pasa a cancelled sin "
+                + "dueño ni nota de cierre; el cuerpo se ignora.")
+@ApiResponses({ 200 "La orden cancelada", 404 ERROR_404,
+                409 "La orden no está pendiente (WORK_ORDER_NOT_PENDING)" })
+public WorkOrderResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+    return WorkOrderResponse.from(flow.cancel(jwt.getSubject(), id));
+}
+```
+
+`SecurityConfig` no cambia (`anyRequest().authenticated()`; CORS ya permite `POST`).
+
+## 13. Contrato HTTP
+
+| Método y ruta | Roles | Cuerpo | Éxito | Errores propios |
+|---|---|---|---|---|
+| `POST /work-orders/{id}/cancel` | `administrador`, `team-leader-mantenimiento` | ninguno (se ignora) | `200 WorkOrderResponse` con `status: "cancelled"`, `takenBy: null`, sin `closingNote` | `401`, `403`, `404`, `409 WORK_ORDER_NOT_PENDING` |
+
+```json
+{ "code": "WORK_ORDER_NOT_PENDING",
+  "message": "La orden 7 no está pendiente",
+  "timestamp": "2026-10-16T12:00:00Z", "path": "/work-orders/7/cancel",
+  "details": { "status": "in-progress", "takenById": "5", "takenByName": "Técnico Electricista Preventivo" } }
+```
+
+## 14. Concurrencia
+
+| Escenario | Qué pasa | REQ |
+|---|---|---|
+| `cancel` contra `take` | Los dos leen `pending`. El primer `UPDATE` toma el bloqueo de fila y aplica; el segundo reevalúa `status = 'pending'` sobre la fila confirmada y toca 0 filas. El servicio relee: `cancelled` (o `in-progress`) → `409 NOT_PENDING` con el estado real. Nunca queda `cancelled` con dueño: `cancel` no escribe `taken_*` y `take` solo aplica sobre `pending`; el `CHECK` de `V9` lo respalda | 40 |
+| Dos `cancel` | El segundo toca 0 filas, relee `cancelled` y responde `409` | 40 |
+| `cancel` contra `DELETE` | El `UPDATE` toca 0 filas, la relectura da vacío y sale `404` | 36 |
+| `cancel` contra `release` | Si la orden estaba `in-progress`, `cancel` ya dio `409`; si `release` la deja `pending` justo antes, `cancel` aplica. Es el comportamiento correcto: se cancela lo que está `pending` en el instante del `UPDATE` | 37 |
+
+Aislamiento: READ COMMITTED, como en §6. Sin columna de versión ni `FOR UPDATE`.
+
+## 15. Estrategia de pruebas
+
+Mismas bases que §7: IT con `AbstractPostgresIT`, perfil `dev`, usuarios sembrados
+(`admin`, `teamleader`, `tecnico`, `electricista`, `produccion`); cada test crea sus
+órdenes por la API y las limpia, las 32 del seed solo se leen.
+
+| Requisito | Prueba |
+|---|---|
+| REQ-32, 33, 40 | `WorkOrderRepositoryAdapterIT` (se amplía): `cancel` sobre una `pending` → devuelve la orden `cancelled` releída en la misma transacción; sobre una que ya no está `pending` → `Optional.empty()` y la fila no cambia; una entity cargada antes de un `cancel` y guardada con `save` después no pisa estado ni autor |
+| REQ-32, 33 | `WorkOrderFlowServiceTest`: éxito sobre `pending` con `Clock` fijo, llama a `cancel` del puerto con el usuario del token. `WorkOrderFlowControllerIT`: administrador y team leader → `200`, `cancelled`, `takenBy` `null`, sin `closingNote`, demás campos iguales; con cuerpo `{"status":"completed","comment":"x"}`, con JSON malformado y con `text/plain` → mismo `200` |
+| REQ-34, 38 | `WorkOrderPermissionsTest` (`requireCancel`: administrador y team leader pasan; técnico y producción, `ForbiddenOperationException`). IT: `tecnico` (incluido el que la tomó) y `produccion` → `403` con orden intacta; sobre una orden `in-progress`/`completed` o un id inexistente → `403`, no `409` ni `404` |
+| REQ-35 | IT: sin token y con token inválido → `401` `ApiError`, orden intacta |
+| REQ-36 | `WorkOrderFlowServiceTest` (orden inexistente, id no numérico) + IT: `404` |
+| REQ-37 | `WorkOrderFlowServiceTest`: `in-progress`, `completed`, `cancelled` → `ConflictException` `WORK_ORDER_NOT_PENDING` con `details` (`status`, y dueño si hay); no se llama a `orders.cancel`. IT: los tres casos → `409` con `details` y orden intacta |
+| REQ-39, 48 | IT (el `take` y el `close` los envía un técnico **habilitado** para el tipo de la orden: `requireTeamServes` corre antes del chequeo de estado, así que uno no habilitado recibiría `403`): sobre una orden cancelada por `cancel`: `cancel`/`take` → `409 NOT_PENDING` con `status: cancelled` y sin `takenById`; `close` (técnico habilitado) y `release` → `409 NOT_IN_PROGRESS`, no `TAKEN_BY_OTHER`; la orden no cambia |
+| REQ-40 | `WorkOrderFlowConcurrencyIT`: `cancel` del team leader contra `take` del técnico, y dos `cancel`, 20 repeticiones cada uno → exactamente un `200` y un `409`; nunca `cancelled` con dueño (consulta SQL del estado final) |
+| REQ-41, 47 | `WorkOrdersCancelMigrationIT` (nuevo, paquete `com.enterpriselab.api`, junto a `WorkOrdersStateInvariantsMigrationIT` y con el mismo `AbstractPostgresIT`): por SQL, la `cancelled` sin dueño con autor y `closed_at` pasa; cada combinación de REQ-47 es rechazada por un `CHECK`; una base propia con `V7`+`V7_1` migrada a `V9` conserva las 32 filas. `WorkOrdersStateInvariantsMigrationIT` (spec 04) **no cambia** y debe seguir en verde: sus casos de `cancelled` sin dueño ya incluyen el rechazo (sin autor ni `closed_at`) que `V9` mantiene |
+| REQ-42 | IT: tras `cancel`, SQL directo sobre `closing_author_id` y `closing_author_name` (usuario del token, `displayName`) y `closed_at` (hora del `Clock`, UTC); `GET /work-orders/{id}` y el listado sin `closingNote`. Con `WorkOrderMapperTest` (nuevo, paquete `com.enterpriselab.api.workorders.persistence`, porque `WorkOrderMapper` es package-private): fila con autor y sin comentario → `closingNote` nula; con comentario → completa |
+| REQ-43 | IT: `close` con `outcome: cancelled` sigue exigiendo 50 a 500 caracteres y devuelve la `closingNote` (las pruebas de la spec siguen en verde) |
+| REQ-44 | IT: detalle, listado y `?status=cancelled` incluyen la orden cancelada con `takenBy` `null` |
+| REQ-45 | `DashboardControllerIT` (se amplía, junto a `everyTransitionShowsUpInTheNextSummary` y `anOrderClosedTodayDoesNotCountInAPastPeriod`): cancelar una `pending` por la API y pedir `GET /dashboard/summary` con un período que incluya el instante → `closedInPeriod.cancelled` y `closedInPeriod.total` suben en 1, `byStatus.cancelled` sube en 1, `byStatus.pending` y `open` bajan en 1, el `total` raíz y `averageResolutionMinutes` no cambian y `workload` no incluye la orden; con un período anterior, no la cuenta. Sin `500`. `DashboardStatisticsAdapterIT` (se amplía): `snapshot` con una `cancelled` sin dueño ni comentario y con `closed_at` dentro del período la cuenta en `ClosedStats.cancelled` |
+| REQ-46 | `OpenApiIT` (se amplía el bucle `take/close/release` a `cancel`): ruta `post` con `bearerAuth`, `401`, `403`, `404`, `409`, sin esquema de cuerpo |
+
+Orden de errores: IT `403` sobre `404` (rol sin permiso con id inexistente) y `404` sobre `409`.
+Todo debe pasar con `./gradlew test`; antes de dar la tarea por cerrada se corre la suite
+completa y se informa cualquier test previo en rojo.
+
+## 16. Puntos que decidí yo
+
+1. **`Cancellation` es un record propio** y no `ClosingNote` con comentario nulo.
+2. **El mapper decide la `closingNote` por `closing_comment`**, no por el autor: efecto
+   colateral deliberado, nada más lee `closingNote` sin comentario.
+3. **`V9` reescribe dos `CHECK` de `V8`** en vez de agregar uno aparte: dos `CHECK`
+   en conflicto (uno que exige y otro que permite) no se pueden componer.
+4. **No se agrega `requireCancel` reutilizando `requireRelease`**: mismos roles hoy,
+   pero son permisos distintos y el pedido pide que `cancel` no dependa de `release`.
+5. **Los tests de invariantes de la spec 04 no cambian**: `V9` mantiene el rechazo de
+   la `cancelled` sin dueño y sin autor, que es lo que ese IT prueba; la aceptación
+   de la `cancelled` sin dueño con autor la prueba el IT nuevo.
+6. **Dashboard sin cambios**: se confirma con la prueba de REQ-45, no con código.
+
+## 17. Trazabilidad (enmienda)
+
+| REQ | Sección |
+|---|---|
+| 32, 33 | §10 (cuerpo), §12 |
+| 34, 38 | §10 (permiso), §12 (orden de evaluación) |
+| 35 | §12 (web), §13 |
+| 36 | §12 (`attempt`) |
+| 37, 39, 48 | §10 (`409`), §12 |
+| 40 | §10 (atomicidad), §14 |
+| 41, 47 | §11 |
+| 42 | §10 (qué escribe, mapper), §12 |
+| 43, 44 | §12 |
+| 45 | §10 (dashboard), §15 |
+| 46 | §10 (OpenAPI), §12 (web) |

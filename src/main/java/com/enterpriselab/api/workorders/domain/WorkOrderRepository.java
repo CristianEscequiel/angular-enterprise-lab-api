@@ -26,4 +26,10 @@ public interface WorkOrderRepository {
 
     /** {@code in-progress} → {@code pending} sin dueño; vacío si ya no está {@code in-progress} (0 filas). */
     Optional<WorkOrder> release(long id);
+
+    /**
+     * {@code pending} → {@code cancelled} con autor y hora, sin dueño ni comentario; vacío si la orden
+     * ya no está {@code pending} (0 filas).
+     */
+    Optional<WorkOrder> cancel(long id, Cancellation by);
 }

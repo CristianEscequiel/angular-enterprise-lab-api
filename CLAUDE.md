@@ -115,6 +115,16 @@ aprobación, aunque el pedido parezca claro.
   `takenById`, `takenByName`) vía `ConflictException`. Migración `V8` con tres
   `CHECK` de invariantes de estado. Orden de errores `401 → 403 rol → 400 → 404 →
   403 equipo → 409`. Pendiente: que el workflow de CI termine en verde en un PR.
+- Enmienda 04-A de la spec 04 (cancelar una orden pendiente): REQ-32 a REQ-48, diseño
+  (`design.md` §10 a §17) y tareas 12 a 20, todas implementadas y marcadas;
+  `./gradlew test` pasa (1123 tests) y el recorrido de REQ-32 a REQ-48 con su evidencia
+  está al final de `tasks.md`. Implementado: `POST /work-orders/{id}/cancel`
+  (administrador y team leader; sin cuerpo; solo desde `pending`; `409
+  WORK_ORDER_NOT_PENDING` en otro estado). La cancelada no tiene dueño ni
+  `closingNote` en la respuesta; quién canceló y cuándo se guardan en
+  `closing_author_*` y `closed_at`. Migración `V9` (relaja dos `CHECK` de `V8`).
+  Orden de errores `401 → 403 → 404 → 409`. Pendiente: cierre formal (auditor y
+  verificador) y que el workflow de CI termine en verde en un PR.
 - Spec 05 (dashboard, módulo `dashboard`): `requirements.md` (REQ-1 a REQ-20),
   `design.md` y `tasks.md` aprobados (2026-10-01). Las 8 tareas están implementadas y
   marcadas; `./gradlew test` pasa y el recorrido de REQ-1 a REQ-20 con su evidencia está
@@ -129,8 +139,8 @@ aprobación, aunque el pedido parezca claro.
   opcional). Contrato de API decidido: REST limpio en inglés. Los
   `requirements.md` se escriben de a una spec, con aprobación entre cada una.
   Migraciones: la 01 usa `V2`, `V2_1` y `V3`; la 00-A usa `V4`, `V4_1` y `V5`; la 02
-  usa `V6` y `V6_1`; la 03 usa `V7` y `V7_1`; la 04 usa `V8`; la 05 no migra; la siguiente numera
-  desde `V9`. Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
+  usa `V6` y `V6_1`; la 03 usa `V7` y `V7_1`; la 04 usa `V8`; la enmienda 04-A usa `V9`; la 05 no migra; la siguiente numera
+  desde `V10`. Pendiente de la spec 00: su cierre formal (REQ-1 a REQ-14).
 - Entorno: compilar requiere JDK 21 (`JAVA_HOME`) y Docker para las IT.
 
 ## Testing
