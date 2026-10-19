@@ -190,6 +190,22 @@ public class WorkOrderController {
         return WorkOrderResponse.from(flow.release(jwt.getSubject(), id));
     }
 
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancela una orden pendiente",
+            description = "Administrador y team leader, solo sobre una orden pending. "
+                    + "Pasa a cancelled sin dueño ni nota de cierre; el cuerpo se ignora.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "La orden cancelada"),
+            @ApiResponse(responseCode = "404", description = ERROR_404,
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409",
+                    description = "La orden no está pendiente (WORK_ORDER_NOT_PENDING), con status y dueño en details",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    public WorkOrderResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+        return WorkOrderResponse.from(flow.cancel(jwt.getSubject(), id));
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Da de baja una orden",

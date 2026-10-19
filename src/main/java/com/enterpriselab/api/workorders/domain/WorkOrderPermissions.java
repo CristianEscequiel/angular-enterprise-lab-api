@@ -67,6 +67,11 @@ public final class WorkOrderPermissions {
         AccessPolicy.requireRole(current, Role.ADMINISTRADOR, Role.TEAM_LEADER_MANTENIMIENTO);
     }
 
+    /** Cancelar una orden pendiente: administrador y team leader (spec 04, enmienda 04-A, REQ-34). */
+    public static void requireCancel(Role current) {
+        AccessPolicy.requireRole(current, Role.ADMINISTRADOR, Role.TEAM_LEADER_MANTENIMIENTO);
+    }
+
     /** {@code guardia} atiende {@code pronto-intervencion}; {@code preventivo-correctivo}, {@code preventivo} y {@code correctivo} (REQ-4). */
     public static void requireTeamServes(TeamType team, WorkOrderType type) {
         boolean serves = team == TeamType.GUARDIA

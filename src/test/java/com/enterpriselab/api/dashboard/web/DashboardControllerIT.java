@@ -202,6 +202,45 @@ class DashboardControllerIT extends AbstractPostgresIT {
     }
 
     @Test
+    void req45_anOrderCancelledByTheCancelEndpointCountsInTheClosedOfThePeriodAndInTheStatusCount() {
+        String id = createPronto();
+        Map<String, Object> before = get("/dashboard/summary", admin()).getBody();
+        List<Map<String, Object>> workloadBefore = workload();
+
+        ResponseEntity<Map> cancel = post("/work-orders/" + id + "/cancel", teamLeader(), null);
+        ResponseEntity<Map> after = get("/dashboard/summary", admin());
+
+        assertThat(cancel.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(after.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> summary = after.getBody();
+        assertThat(delta((Map) summary.get("closedInPeriod"), (Map) before.get("closedInPeriod"), "cancelled"))
+                .isEqualTo(1);
+        assertThat(delta((Map) summary.get("closedInPeriod"), (Map) before.get("closedInPeriod"), "total"))
+                .isEqualTo(1);
+        assertThat(delta((Map) summary.get("closedInPeriod"), (Map) before.get("closedInPeriod"), "completed"))
+                .isZero();
+        assertThat(delta((Map) summary.get("byStatus"), (Map) before.get("byStatus"), "cancelled")).isEqualTo(1);
+        assertThat(delta((Map) summary.get("byStatus"), (Map) before.get("byStatus"), "pending")).isEqualTo(-1);
+        assertThat(delta(summary, before, "open")).isEqualTo(-1);
+        assertThat(delta(summary, before, "total")).isZero();
+        assertThat(summary.get("averageResolutionMinutes")).isEqualTo(before.get("averageResolutionMinutes"));
+        assertThat(workload()).isEqualTo(workloadBefore);
+    }
+
+    @Test
+    void req45_anOrderCancelledByTheCancelEndpointDoesNotCountInAPastPeriod() {
+        Map<String, Object> pastBefore = (Map) get("/dashboard/summary?from=2020-01-01&to=2020-12-31", admin())
+                .getBody().get("closedInPeriod");
+        String id = createPronto();
+        post("/work-orders/" + id + "/cancel", admin(), null);
+
+        ResponseEntity<Map> past = get("/dashboard/summary?from=2020-01-01&to=2020-12-31", admin());
+
+        assertThat(past.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat((Map) past.getBody().get("closedInPeriod")).isEqualTo(pastBefore);
+    }
+
+    @Test
     void workloadListsTheTechnicianWithHisInProgressOrders() {
         long before = loadOf("Técnico Mecánico de Guardia");
         String first = createPronto();
@@ -245,6 +284,11 @@ class DashboardControllerIT extends AbstractPostgresIT {
         ResponseEntity<Map> response = post("/work-orders", production(), body);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return (String) response.getBody().get("id");
+    }
+
+    private List<Map<String, Object>> workload() {
+        return restTemplate.exchange("/dashboard/workload", HttpMethod.GET, new HttpEntity<>(headers(admin())),
+                List.class).getBody();
     }
 
     private long loadOf(String name) {

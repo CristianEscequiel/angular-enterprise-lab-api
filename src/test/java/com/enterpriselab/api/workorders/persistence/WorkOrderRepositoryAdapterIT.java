@@ -17,6 +17,7 @@ import com.enterpriselab.api.AbstractPostgresIT;
 import com.enterpriselab.api.shared.domain.NotFoundException;
 import com.enterpriselab.api.shared.domain.PageQuery;
 import com.enterpriselab.api.shared.domain.PageResult;
+import com.enterpriselab.api.workorders.domain.Cancellation;
 import com.enterpriselab.api.workorders.domain.ClosingNote;
 import com.enterpriselab.api.workorders.domain.MachineRef;
 import com.enterpriselab.api.workorders.domain.Priority;
@@ -392,6 +393,72 @@ class WorkOrderRepositoryAdapterIT extends AbstractPostgresIT {
         assertThat(read.status()).isEqualTo(WorkOrderStatus.COMPLETED);
         assertThat(read.takenBy().userId()).isEqualTo(userId);
         assertThat(read.closingNote().comment()).isEqualTo("Nota");
+    }
+
+    // --- cancel (enmienda 04-A: REQ-32, REQ-40, REQ-42) ----------------------------------------------
+
+    @Test
+    void req32_req42_cancelOfAPendingOrderReturnsItCancelledWithoutOwnerNorNoteAndStoresTheAuthor() {
+        WorkOrder saved = repository.save(order("WORA-cancel", null, "M", ""));
+        long userId = userId("admin");
+        Instant at = NOW.plusSeconds(7);
+
+        WorkOrder cancelled = repository.cancel(saved.id(), new Cancellation(userId, "Administrador", at))
+                .orElseThrow();
+
+        assertThat(cancelled.status()).isEqualTo(WorkOrderStatus.CANCELLED);
+        assertThat(cancelled.takenBy()).isNull();
+        assertThat(cancelled.closingNote()).isNull();
+        assertThat(cancelled.title()).isEqualTo(saved.title());
+        assertThat(cancelled.createdAt()).isEqualTo(saved.createdAt());
+        assertThat(repository.findById(saved.id())).contains(cancelled);
+        assertThat(jdbcTemplate.queryForMap("select closing_author_id, closing_author_name, closed_at, "
+                + "closing_comment, taken_by_id from work_orders where id = ?", saved.id()))
+                .containsEntry("closing_author_id", userId).containsEntry("closing_author_name", "Administrador")
+                .containsEntry("closing_comment", null).containsEntry("taken_by_id", null)
+                .extractingByKey("closed_at").isNotNull();
+    }
+
+    @Test
+    void req40_cancelOnAnOrderThatIsNotPendingOrMissingTouchesNothing() {
+        WorkOrder inProgress = repository.save(order("WORA-cancel-ip", null, "M", ""));
+        WorkOrder cancelledAlready = repository.save(order("WORA-cancel-c", null, "M", ""));
+        long techId = userId("tecnico");
+        Cancellation by = new Cancellation(userId("admin"), "Administrador", NOW);
+        repository.take(inProgress.id(), new TakenBy(techId, "Técnico", NOW)).orElseThrow();
+        repository.cancel(cancelledAlready.id(), by).orElseThrow();
+        WorkOrder before = repository.findById(inProgress.id()).orElseThrow();
+
+        assertThat(repository.cancel(inProgress.id(), by)).isEmpty();
+        assertThat(repository.cancel(cancelledAlready.id(),
+                new Cancellation(userId("teamleader"), "Otro", NOW.plusSeconds(60)))).isEmpty();
+        assertThat(repository.cancel(-1L, by)).isEmpty();
+
+        assertThat(repository.findById(inProgress.id())).contains(before);
+        assertThat(jdbcTemplate.queryForObject("select closing_author_name from work_orders where id = ?",
+                String.class, cancelledAlready.id())).isEqualTo("Administrador");
+    }
+
+    @Test
+    void req40_aStaleEntitySavedAfterACancelDoesNotOverwriteStatusNorAuthor() {
+        WorkOrder saved = repository.save(order("WORA-cancel-stale", null, "M", ""));
+        long adminId = userId("admin");
+        TransactionTemplate outer = new TransactionTemplate(transactionManager);
+        TransactionTemplate inner = new TransactionTemplate(transactionManager);
+        inner.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        outer.executeWithoutResult(status -> {
+            WorkOrderEntity stale = jpaRepository.findById(saved.id()).orElseThrow();
+            inner.executeWithoutResult(other -> repository.cancel(saved.id(),
+                    new Cancellation(adminId, "Administrador", NOW)).orElseThrow());
+            stale.updateDetails("WORA-cancel-stale-edited", "Descripción editada", "high");
+            jpaRepository.saveAndFlush(stale);
+        });
+
+        assertThat(repository.findById(saved.id()).orElseThrow().title()).isEqualTo("WORA-cancel-stale-edited");
+        assertThat(repository.findById(saved.id()).orElseThrow().status()).isEqualTo(WorkOrderStatus.CANCELLED);
+        assertThat(jdbcTemplate.queryForObject("select closing_author_id from work_orders where id = ?",
+                Long.class, saved.id())).isEqualTo(adminId);
     }
 
     private long userId(String username) {

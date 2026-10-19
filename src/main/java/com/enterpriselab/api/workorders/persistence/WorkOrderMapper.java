@@ -18,7 +18,7 @@ final class WorkOrderMapper {
                 entity.getMachineComment());
         TakenBy takenBy = entity.getTakenById() == null ? null
                 : new TakenBy(entity.getTakenById(), entity.getTakenByName(), entity.getTakenAt());
-        ClosingNote closingNote = entity.getClosingAuthorId() == null ? null
+        ClosingNote closingNote = entity.getClosingComment() == null ? null
                 : new ClosingNote(entity.getClosingComment(), entity.getClosingAuthorId(),
                         entity.getClosingAuthorName(), entity.getClosedAt());
         return new WorkOrder(entity.getId(), entity.getTitle(), entity.getDescription(), machineRef,

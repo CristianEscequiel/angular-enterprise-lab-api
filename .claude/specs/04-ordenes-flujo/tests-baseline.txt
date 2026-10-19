@@ -1,0 +1,11 @@
+# Enmienda 04-A — tests aprobados por el usuario (2026-10-16); formato: <git hash-object> <ruta>
+98e2ded9bdb16a9cf08eeaea4ccc72f1cc973417 src/test/java/com/enterpriselab/api/WorkOrdersCancelMigrationIT.java
+23917f32f74369616621e92a2886eaa5331ce66b src/test/java/com/enterpriselab/api/workorders/persistence/WorkOrderMapperTest.java
+fb6f1350990e491c96ac10b841daf69ed1270c43 src/test/java/com/enterpriselab/api/workorders/domain/WorkOrderPermissionsTest.java
+990463840ccbebc3c76167d9b783a31018c3792c src/test/java/com/enterpriselab/api/workorders/domain/WorkOrderFlowServiceTest.java
+6eda1174f16e88ba07a1a9149132bf8abfd4ba4f src/test/java/com/enterpriselab/api/workorders/persistence/WorkOrderRepositoryAdapterIT.java
+7d1f5f2b9efe6ebc83962dcdf02e604f359aa84f src/test/java/com/enterpriselab/api/workorders/web/WorkOrderFlowControllerIT.java
+f2d469993e30cef2b81031bdafcedf29b5902876 src/test/java/com/enterpriselab/api/workorders/web/WorkOrderFlowConcurrencyIT.java
+9ea4d1e7a28399abf38f38345981771f203568d7 src/test/java/com/enterpriselab/api/dashboard/web/DashboardControllerIT.java
+04d61b2e020935bfe57b6b96b2cc6a2265e41558 src/test/java/com/enterpriselab/api/dashboard/persistence/DashboardStatisticsAdapterIT.java
+f0ad0c8773ea87c7517f9ce7f122e43bfd90b2ae src/test/java/com/enterpriselab/api/shared/web/OpenApiIT.java

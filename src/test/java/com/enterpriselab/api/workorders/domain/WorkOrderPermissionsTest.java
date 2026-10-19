@@ -106,6 +106,19 @@ class WorkOrderPermissionsTest {
                 () -> WorkOrderPermissions.requireRelease(role));
     }
 
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void req34_req38_cancelIsForAdministratorAndTeamLeaderOnly(Role role) {
+        assertAllowedOnly(Set.of(ADMINISTRADOR, TEAM_LEADER_MANTENIMIENTO), role,
+                () -> WorkOrderPermissions.requireCancel(role));
+    }
+
+    @Test
+    void req34_aMissingRoleIsForbiddenToCancel() {
+        assertThatThrownBy(() -> WorkOrderPermissions.requireCancel(null))
+                .isInstanceOf(ForbiddenOperationException.class);
+    }
+
     /** La matriz completa de 2 equipos x 3 tipos. */
     @Test
     void teamServesMatrix() {

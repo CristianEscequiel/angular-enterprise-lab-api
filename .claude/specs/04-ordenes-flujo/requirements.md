@@ -245,6 +245,8 @@ por sí mismas una orden `pending` con dueño o con nota de cierre, una
 `in-progress` sin dueño o con nota de cierre, y una `completed` o `cancelled` sin
 dueño, sin nota de cierre o con un autor distinto del dueño; y la migración
 DEBERÁ aplicarse sobre las órdenes de prueba de la spec 03 sin modificarlas.
+_Enmienda 04-A: en lo que dice de la `cancelled` sin dueño, lo reemplazan REQ-41 y
+REQ-47._
 
 ### REQ-31: Documentación OpenAPI
 CUANDO se accede a la documentación de springdoc
@@ -286,3 +288,193 @@ respuestas `403`, `404` y `409`, generados desde las anotaciones del código.
   `db.seed.spec.ts` del frontend), pero el mapeo de dueños por usuario (REQ-44 de
   la spec 03) tiene que quedar consistente con `takenBy.id` y con el autor de la
   nota.
+
+---
+
+# Enmienda 04-A — Cancelar una orden pendiente
+
+## Contexto y decisiones (enmienda)
+
+El frontend (`angular-enterprise-lab`, spec 019, rama `feat/019-cancelar-orden`) ya
+consume `POST /work-orders/{id}/cancel` y el endpoint no existe. Hoy una orden pasa
+a `cancelled` solo por `close` con `outcome` `cancelled` (técnico dueño, con
+comentario de 50 a 500). Esta enmienda suma **una transición nueva** a la máquina de
+estados: `pending` → `cancelled`, sin pasar por `in-progress`. REQ-1 a REQ-31 no
+cambian, salvo lo que dice REQ-41 sobre los invariantes de REQ-30.
+
+Decisiones tomadas:
+
+- **Acción dedicada** `POST /work-orders/{id}/cancel`, sin cuerpo, `200` con el
+  `WorkOrderResponse` de `take`, `release` y `close`.
+- **Roles:** `administrador` y `team-leader-mantenimiento` (el mismo mecanismo que
+  `release` y `PUT`). `tecnico` y `personal-produccion`, `403`. La autoridad es del
+  servidor; el cliente solo oculta el botón.
+- **Solo desde `pending`.** Una `in-progress` se libera primero (`release`);
+  `completed` y `cancelled` no se cancelan. El `409` reutiliza el código
+  `WORK_ORDER_NOT_PENDING` de `take` y el `details` de la spec 04 (`status` y, si
+  hay dueño, `takenById` y `takenByName`).
+- **Sin comentario ni motivo** (decisión del usuario para esta spec).
+- **Una cancelación hecha por este endpoint no tiene `closingNote` en la
+  respuesta.** La `closingNote` del contrato siempre lleva un comentario de 50 a
+  500 caracteres y esta cancelación no lo tiene; devolverla con el comentario nulo
+  rompería ese contrato. Quién canceló y cuándo se **guarda** en las columnas
+  `closing_author_id`, `closing_author_name` y `closed_at` (auditoría y dashboard),
+  pero la API no lo expone en esta enmienda.
+- **Cambio de esquema (decisión del usuario):** migración `V9` que relaja los
+  `CHECK` de `V8` para que una `cancelled` pueda no tener dueño ni comentario, pero
+  exija quién canceló y cuándo (`closing_author_*` y `closed_at`).
+- **Dashboard:** `DashboardStatisticsAdapter` cuenta `cancelled` por `closed_at` y
+  calcula el promedio solo sobre `completed`; con `closed_at` informado, la
+  cancelación entra en `closedInPeriod` sin tocar el dashboard (REQ-45 lo fija con
+  una prueba).
+- **Se mantiene** el flujo de cierre del técnico (`close` con `cancelled`), la
+  atomicidad por actualización condicional y la autorización en `domain`.
+
+Alcance descartado explícitamente en esta enmienda:
+
+- Cancelar órdenes `in-progress`, o que un técnico cancele por este endpoint.
+- Pedir o guardar un motivo; exponer quién canceló en la respuesta; reabrir una
+  orden cancelada.
+- Cambiar el contrato de `close`, `take` o `release`, o el `PUT`.
+
+## Requisitos (enmienda)
+
+### Cancelar una orden
+
+### REQ-32: Cancelar una orden pendiente
+CUANDO un `administrador` o un `team-leader-mantenimiento` envía
+`POST /work-orders/{id}/cancel` para una orden `pending`
+EL SISTEMA DEBERÁ responder `200 OK` con la orden en `status` `cancelled`, con
+`takenBy` en `null`, sin `closingNote` y con los demás campos (título, descripción,
+tipo, prioridad, máquina, `createdAt`) sin cambios.
+
+### REQ-33: El cuerpo se ignora
+CUANDO `POST /work-orders/{id}/cancel` incluye un cuerpo (por ejemplo `status`,
+`takenBy`, `closingNote` o un `comment`), sea JSON válido, malformado o de otro
+`Content-Type`
+EL SISTEMA DEBERÁ ignorarlo y aplicar solo la cancelación.
+
+### REQ-34: Cancelar sin permiso
+CUANDO un usuario con rol `tecnico` (incluido el dueño de la orden) o
+`personal-produccion` envía `cancel`
+EL SISTEMA DEBERÁ responder `403 Forbidden` y no modificar la orden.
+
+### REQ-35: Cancelar sin autenticación
+CUANDO se envía `POST /work-orders/{id}/cancel` sin token, o con uno inválido
+EL SISTEMA DEBERÁ responder `401 Unauthorized` en el `ApiError` de la spec 00 y no
+modificar la orden.
+
+### REQ-36: Cancelar una orden inexistente
+CUANDO se envía `POST /work-orders/{id}/cancel` con un id que no existe o que no es
+numérico
+EL SISTEMA DEBERÁ responder `404 Not Found`.
+
+### REQ-37: Cancelar una orden que no está pendiente
+CUANDO un `administrador` o un `team-leader-mantenimiento` envía `cancel` para una
+orden `in-progress`, `completed` o `cancelled`
+EL SISTEMA DEBERÁ responder `409 Conflict` con `code` `WORK_ORDER_NOT_PENDING` y
+`details` con su `status` real y, si tiene dueño, `takenById` y `takenByName`, sin
+modificar la orden.
+
+### REQ-38: El permiso se evalúa antes que el estado
+CUANDO un `tecnico` o un `personal-produccion` envía `cancel` sobre una orden que
+además no está `pending`, o sobre un id que no existe
+EL SISTEMA DEBERÁ responder `403 Forbidden` y no `409` ni `404`.
+
+### REQ-39: Una cancelación no se repite ni se retoma
+CUANDO se envía `cancel` o `take` para una orden que ya fue cancelada por este
+endpoint
+EL SISTEMA DEBERÁ responder `409 Conflict` con `code` `WORK_ORDER_NOT_PENDING` y
+`details.status` `cancelled`, sin `takenById` (no tiene dueño), y conservar la
+orden sin cambios.
+
+### REQ-48: Una cancelación no se cierra ni se libera
+CUANDO se envía `close` o `release` para una orden que ya fue cancelada por
+`cancel` (sin dueño)
+EL SISTEMA DEBERÁ responder `409 Conflict` con `code` `WORK_ORDER_NOT_IN_PROGRESS`
+(en `close`, no `WORK_ORDER_TAKEN_BY_OTHER`) y conservar la orden sin cambios.
+_Extiende REQ-19 a la cancelación sin dueño._
+
+### REQ-40: Cancelación contra toma
+CUANDO un `cancel` y un `take` llegan a la vez para la misma orden `pending`, o dos
+`cancel` a la vez
+EL SISTEMA DEBERÁ aplicar una sola operación, responder `200 OK` a esa y
+`409 Conflict` a la otra con el estado real en `details`, y nunca dejar una orden
+`cancelled` con dueño ni `in-progress` marcada como cancelada.
+
+### Datos y coherencia
+
+### REQ-41: Invariantes en la base de datos
+CUANDO la aplicación arranca contra una base con las migraciones hasta `V8`
+EL SISTEMA DEBERÁ aplicar una migración de Flyway `V9` que reemplace los `CHECK`
+de `V8` (`work_orders_closing_group_check`, que hoy exige `closing_comment` junto
+con el autor, y `work_orders_state_invariants_check`, que hoy exige dueño para
+`cancelled`) y acepte una orden `cancelled` sin dueño y sin comentario, siempre
+que tenga `closing_author_id`, `closing_author_name` y `closed_at`; y la migración
+DEBERÁ aplicarse sobre las órdenes de prueba sin modificarlas.
+_Reemplaza parcialmente a REQ-30 (spec 04): solo en lo que REQ-30 decía de la
+`cancelled` sin dueño._
+
+### REQ-47: Lo que la base sigue rechazando
+CUANDO se intenta guardar por SQL una orden en alguna de estas combinaciones
+EL SISTEMA DEBERÁ rechazarla con un `CHECK`: `pending` o `in-progress` con nota de
+cierre; `completed` sin dueño, sin comentario o con autor distinto del dueño;
+`cancelled` con dueño pero sin comentario o con autor distinto del dueño;
+`cancelled` sin dueño y con comentario; `cancelled` sin dueño y sin
+`closing_author_id`, `closing_author_name` o `closed_at`.
+
+### REQ-42: Quién y cuándo se guardan, sin exponerse
+CUANDO una orden se cancela por `cancel`
+EL SISTEMA DEBERÁ guardar en `closing_author_id` y `closing_author_name` al usuario
+autenticado (id y `displayName` en ese momento) y en `closed_at` la hora del
+servidor en UTC, y la respuesta de `GET /work-orders/{id}` y del listado DEBERÁ
+seguir sin `closingNote`.
+
+### REQ-43: El cierre del técnico no cambia
+CUANDO el técnico dueño envía `close` con `outcome` `cancelled`
+EL SISTEMA DEBERÁ exigir el comentario de 50 a 500 caracteres y devolver la
+`closingNote` completa, igual que en REQ-9 a REQ-14.
+
+### REQ-44: La consulta refleja la cancelación
+CUANDO una orden se cancela por `cancel`
+EL SISTEMA DEBERÁ devolverla con `status` `cancelled` y `takenBy` en `null` en
+`GET /work-orders/{id}`, en `GET /work-orders` y en el filtro `status=cancelled`.
+
+### REQ-45: El dashboard cuenta la cancelación
+CUANDO una orden se cancela por `cancel` y su `closed_at` cae dentro del período
+consultado
+EL SISTEMA DEBERÁ incluirla en `closedInPeriod.cancelled` y en `closedInPeriod.total`
+de `GET /dashboard/summary`, y en el conteo por estado `cancelled`, sin cambiar
+`averageResolutionMinutes` ni `GET /dashboard/workload`, y sin que el resumen
+falle por la ausencia de dueño o de comentario.
+
+### REQ-46: Documentación OpenAPI
+CUANDO se accede a la documentación de springdoc
+EL SISTEMA DEBERÁ mostrar `POST /work-orders/{id}/cancel` con `bearerAuth` y sus
+respuestas `200`, `403`, `404` y `409`, generada desde las anotaciones del código.
+
+## Auto-revisión (enmienda)
+
+- Un comportamiento por requisito. REQ-40 agrupa toma y cancelación porque la regla
+  es una (un solo ganador). REQ-44 extiende REQ-29 y REQ-48 extiende REQ-19 a la
+  cancelación.
+- Para el diseño: `WorkOrderMapper.toDomain` arma hoy la `ClosingNote` cuando
+  `closing_author_id` no es nulo; con `cancel` eso daría una `closingNote` con
+  comentario nulo. El mapper tiene que decidirlo por `closing_comment` (REQ-32, 42 y
+  44 se prueban en la respuesta de `cancel`, en `GET` y en el listado).
+- Caminos no felices: rol sin permiso (REQ-34), sin token (REQ-35), inexistente
+  (REQ-36), estado incorrecto (REQ-37, 39), concurrencia (REQ-40). Orden de errores:
+  `401 → 403 → 404 → 409`; no hay `400` porque no hay cuerpo.
+- Puntos que decidí yo y conviene que confirmes:
+  1. **Sin `closingNote` en la respuesta** de una cancelación hecha por `cancel`
+     (REQ-32, 42); el autor se guarda pero no se expone.
+  2. **Se guarda quién canceló** aunque el pedido no lo exigía, porque `V9` mantiene
+     el grupo `closing_author_*`/`closed_at` completo y el dashboard filtra por
+     `closed_at`.
+  3. **`409` para `cancel` sobre una orden ya cancelada** (REQ-39), no idempotente,
+     igual que `take` sobre una propia (punto 2 de la auto-revisión de la spec).
+  4. **REQ-45 no pide cambios en el dashboard**: se fija con una prueba de
+     integración, no con código nuevo.
+- Fuera de la API, para avisarte: si el repo del frontend tiene un script de
+  contrato contra la API real (spec 018, T11), habría que sumarle este endpoint; no
+  lo toco.

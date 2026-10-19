@@ -161,7 +161,68 @@ class WorkOrderFlowConcurrencyIT extends AbstractPostgresIT {
         }
     }
 
+    @Test
+    void req40_aCancelAgainstATakeHasOneWinnerAndNeverLeavesACancelledOrderWithAnOwner() throws Exception {
+        String tecnico = login("tecnico", "tecnico123");
+        String teamLeader = login("teamleader", "teamleader123");
+
+        for (int i = 0; i < REPETITIONS; i++) {
+            String id = createPending();
+
+            List<ResponseEntity<Map>> results = race(
+                    () -> post(id, "cancel", teamLeader, null),
+                    () -> post(id, "take", tecnico, null));
+
+            ResponseEntity<Map> cancel = results.get(0);
+            ResponseEntity<Map> take = results.get(1);
+            assertThat(List.of(cancel.getStatusCode(), take.getStatusCode()))
+                    .containsExactlyInAnyOrder(HttpStatus.OK, HttpStatus.CONFLICT);
+            ResponseEntity<Map> loser = cancel.getStatusCode() == HttpStatus.CONFLICT ? cancel : take;
+            assertThat(loser.getBody()).containsEntry("code", "WORK_ORDER_NOT_PENDING");
+            String finalStatus = cancel.getStatusCode() == HttpStatus.OK ? "cancelled" : "in-progress";
+            assertThat(((Map) loser.getBody().get("details")).get("status")).isEqualTo(finalStatus);
+            assertCancelConsistent(id, finalStatus);
+        }
+    }
+
+    @Test
+    void req40_twoCancelsOfTheSameOrderHaveOneWinnerAndOneConflictWithTheRealState() throws Exception {
+        String admin = login("admin", "admin123");
+        String teamLeader = login("teamleader", "teamleader123");
+
+        for (int i = 0; i < REPETITIONS; i++) {
+            String id = createPending();
+
+            List<ResponseEntity<Map>> results = race(
+                    () -> post(id, "cancel", admin, null),
+                    () -> post(id, "cancel", teamLeader, null));
+
+            single(results, HttpStatus.OK);
+            ResponseEntity<Map> loser = single(results, HttpStatus.CONFLICT);
+            assertThat(loser.getBody()).containsEntry("code", "WORK_ORDER_NOT_PENDING");
+            assertThat((Map) loser.getBody().get("details")).containsEntry("status", "cancelled");
+            assertCancelConsistent(id, "cancelled");
+        }
+    }
+
     // --- Ayudas ----------------------------------------------------------------------------------------
+
+    /** Estado final de una carrera con cancel: cancelled sin dueño con autor, o in-progress con dueño y sin autor. */
+    private void assertCancelConsistent(String id, String expectedStatus) {
+        Map<String, Object> row = jdbcTemplate.queryForMap("select status, taken_by_id, closing_author_id, "
+                + "closing_comment, closed_at from work_orders where id = ?", Long.valueOf(id));
+        assertThat(row.get("status")).isEqualTo(expectedStatus);
+        assertThat(row.get("closing_comment")).isNull();
+        if (expectedStatus.equals("cancelled")) {
+            assertThat(row.get("taken_by_id")).isNull();
+            assertThat(row.get("closing_author_id")).isNotNull();
+            assertThat(row.get("closed_at")).isNotNull();
+        } else {
+            assertThat(row.get("taken_by_id")).isNotNull();
+            assertThat(row.get("closing_author_id")).isNull();
+            assertThat(row.get("closed_at")).isNull();
+        }
+    }
 
     /** Dispara las dos llamadas a la vez y devuelve sus respuestas en el mismo orden. */
     private List<ResponseEntity<Map>> race(Callable<ResponseEntity<Map>> first,

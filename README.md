@@ -198,6 +198,9 @@ curl -X POST http://localhost:8080/work-orders/7/close \
 
 # administrador o team leader devuelven una orden en progreso a pending
 curl -X POST http://localhost:8080/work-orders/7/release -H "Authorization: Bearer $ADMIN"
+
+# administrador o team leader cancelan una orden pendiente (sin cuerpo)
+curl -X POST http://localhost:8080/work-orders/8/cancel -H "Authorization: Bearer $ADMIN"
 ```
 
 Un conflicto de estado responde `409` con el estado real y, si hay dueño, quién es:
@@ -267,6 +270,7 @@ entre `createdAt` y el cierre, solo órdenes `completed`; `null` si no hay ningu
 | `POST /work-orders/{id}/take` | técnico de equipo habilitado | Toma una orden `pending` (pasa a `in-progress` a su nombre); `403` si su equipo no atiende el tipo; `409 WORK_ORDER_NOT_PENDING` |
 | `POST /work-orders/{id}/close` | técnico dueño de la orden | Cierra con `{outcome: `completed` o `cancelled`, comment}` (50 a 500 caracteres); `400`, `409 WORK_ORDER_NOT_IN_PROGRESS` o `WORK_ORDER_TAKEN_BY_OTHER` |
 | `POST /work-orders/{id}/release` | administrador, team leader | Devuelve una orden `in-progress` a `pending` sin dueño; `409 WORK_ORDER_NOT_IN_PROGRESS` |
+| `POST /work-orders/{id}/cancel` | administrador, team leader | Cancela una orden `pending` (pasa a `cancelled`, sin dueño ni comentario; ignora el cuerpo); `403` a técnico y producción; `409 WORK_ORDER_NOT_PENDING` |
 | `GET /dashboard/summary` | autenticado | Conteos por estado, prioridad y tipo, `total`, `open`, cerradas en el período y tiempo promedio de resolución; `from` y `to` opcionales; `400` si una fecha es inválida |
 | `GET /dashboard/workload` | administrador, team leader | Técnicos con órdenes `in-progress` y cuántas tiene cada uno |
 | `/swagger-ui.html`, `/v3/api-docs/**` | público | Documentación OpenAPI          |

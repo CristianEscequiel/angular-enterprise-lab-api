@@ -233,3 +233,199 @@ Desvíos respecto del diseño:
   por `WorkOrderFlowControllerIT` para los `409` por dueño ajeno.
 - La política de "más de 3 intentos" del diseño §1 es `MAX_ATTEMPTS = 3`: tras el
   tercer `UPDATE` de 0 filas lanza `IllegalStateException` (`500`), como se decidió.
+
+---
+
+# Tareas: Enmienda 04-A — Cancelar una orden pendiente
+
+Cubre REQ-32 a REQ-48 con el diseño de `design.md` §10 a §17. Mismas reglas de
+entorno y de IT que arriba (prefijo propio de títulos, p. ej. `WOCIT-`; las 32
+órdenes del seed solo se leen). La migración de la enmienda es `V9`. **Los tests
+que ya existen no cambian** (design.md §16.5); esta enmienda solo agrega casos y
+clases. **Convención de nombres:** cada método de test nuevo lleva el id del criterio
+que verifica en el nombre (p. ej. `req32_cancelPendingOrderReturnsCancelled`), para que
+`spec-verifier` lo encuentre. Las tareas 12 a 14 son independientes entre sí. Orden:
+12 → 15 → 16 → 17 → 18 y 19 → 20.
+
+- [x] 12. Migración `V9` y `WorkOrdersCancelMigrationIT`
+  - Detalle: `db/migration/V9__work_orders_cancel_pending.sql` con el SQL de
+    design.md §11 (reemplaza `work_orders_closing_group_check` y
+    `work_orders_state_invariants_check`; deja `work_orders_owner_group_check`). No
+    modifica filas.
+  - Depende de: —
+  - Verificación: `WorkOrdersCancelMigrationIT` (paquete `com.enterpriselab.api`,
+    con `AbstractPostgresIT`), por SQL directo — aceptada: `cancelled` sin dueño,
+    con autor, nombre y `closed_at`, sin comentario; rechazadas: todas las
+    combinaciones de REQ-47. Una base propia con `V7` + `V7_1` migrada hasta `V9`
+    conserva las 32 filas. `WorkOrdersStateInvariantsMigrationIT`,
+    `SeedWorkOrdersIT`, `WorkOrdersMigrationIT` y `MigrationIT` siguen en verde sin
+    cambios.
+  - _Requisitos: REQ-41, REQ-47_
+
+- [x] 13. `WorkOrderMapper`: la `closingNote` depende del comentario
+  - Detalle: `WorkOrderMapper.toDomain` arma la `ClosingNote` solo si
+    `closing_comment` no es nulo (hoy decide `closing_author_id`). `toNewEntity` no
+    cambia.
+  - Depende de: —
+  - Verificación: `WorkOrderMapperTest` (**nuevo**, paquete
+    `com.enterpriselab.api.workorders.persistence`) — fila con autor y sin comentario
+    → `closingNote` nula; con comentario → nota completa; sin autor → nula. Las
+    pruebas de cierre existentes siguen en verde (con comentario, la `closingNote` del
+    cierre del técnico sale completa).
+  - _Requisitos: REQ-32, REQ-42, REQ-43, REQ-44_
+
+- [x] 14. Permiso `requireCancel`
+  - Detalle: `WorkOrderPermissions.requireCancel(Role)` con
+    `AccessPolicy.requireRole(current, ADMINISTRADOR, TEAM_LEADER_MANTENIMIENTO)`.
+    Método propio, sin reutilizar `requireRelease`.
+  - Depende de: —
+  - Verificación: `WorkOrderPermissionsTest` — matriz de los cuatro roles (administrador
+    y team leader pasan; técnico y producción dan `ForbiddenOperationException`) y rol
+    `null` da `403`.
+  - _Requisitos: REQ-34, REQ-38_
+
+- [x] 15. Puerto y persistencia de `cancel`
+  - Detalle: record `Cancellation(long authorId, String authorName, Instant at)` en
+    `workorders/domain`; `WorkOrderRepository.cancel(long id, Cancellation by)` →
+    `Optional<WorkOrder>` (vacío si el `UPDATE` tocó 0 filas);
+    `WorkOrderJpaRepository.cancel` con el `@Modifying(flushAutomatically = true,
+    clearAutomatically = true)` de design.md §12; `WorkOrderRepositoryAdapter.cancel`
+    en una transacción: `UPDATE` → si `1`, relectura. `WorkOrderEntity` no cambia.
+  - Depende de: 12, 13
+  - Verificación: `WorkOrderRepositoryAdapterIT` (se amplía) — `cancel` sobre una
+    `pending` devuelve la orden `cancelled` con `takenBy` nulo, sin `closingNote` y
+    con `closing_author_*` y `closed_at` escritos; sobre una que ya no está `pending`
+    o inexistente → `Optional.empty()` y la fila no cambia; una entity leída antes del
+    `cancel` y guardada con `save` después no pisa estado ni autor; ninguna operación
+    rompe un `CHECK` de `V9`.
+  - _Requisitos: REQ-32, REQ-40, REQ-42_
+
+- [x] 16. `WorkOrderFlowService.cancel`
+  - Detalle: `cancel(username, id)` según design.md §12: `currentUser` (`401`) →
+    `requireCancel` (`403`) → `attempt` con `NumericId` y `findById` (`404`) → estado
+    `pending` (`409 WORK_ORDER_NOT_PENDING` con `conflict(...)`) → `orders.cancel` con
+    `Cancellation(user.id(), user.displayName(), now())`. Un resultado vacío
+    reevalúa hasta 3 intentos. Actualizar el Javadoc de la clase para incluir
+    `cancel`.
+  - Depende de: 14, 15
+  - Verificación: `WorkOrderFlowServiceTest` (se amplía) — éxito sobre `pending` con
+    `Clock` fijo (el puerto recibe el id, el usuario del token y la hora truncada);
+    `in-progress`, `completed` y `cancelled` → `ConflictException`
+    `WORK_ORDER_NOT_PENDING` con `details` (`status` y, si hay dueño, `takenById` y
+    `takenByName`) y sin llamar a `orders.cancel`; técnico y producción → `403` sin
+    leer la orden; id inexistente y no numérico → `404`; `cancel` vacío y luego
+    `cancelled` en la relectura → `409` con el estado real.
+  - _Requisitos: REQ-32, REQ-34, REQ-36, REQ-37, REQ-38, REQ-39, REQ-48_
+
+- [x] 17. Endpoint `POST /work-orders/{id}/cancel` y OpenAPI
+  - Detalle: `WorkOrderController.cancel(@AuthenticationPrincipal Jwt, @PathVariable
+    String id)` sin `@RequestBody`, con `@Operation` y `@ApiResponses` (`200`, `404`,
+    `409`) según design.md §12. `SecurityConfig` no cambia.
+  - Depende de: 16
+  - Verificación: `WorkOrderFlowControllerIT` (se amplía) — administrador y team leader
+    → `200`, `cancelled`, `takenBy` nulo, sin `closingNote`, demás campos iguales; con
+    cuerpo con `status`/`comment`, con JSON malformado y con `text/plain` → mismo `200`;
+    `tecnico` (incluido el que la tomó) y `produccion` → `403` con la orden intacta, y
+    también sobre una orden `in-progress` o un id inexistente; sin token y con token
+    inválido → `401`; inexistente y no numérico → `404`; `in-progress`, `completed` y
+    `cancelled` → `409` con `details`; sobre una cancelada, `cancel` y `take`
+    (técnico habilitado) → `409 WORK_ORDER_NOT_PENDING` sin `takenById`, `close`
+    (técnico habilitado) y `release` → `409 WORK_ORDER_NOT_IN_PROGRESS`; `close` con
+    `outcome: cancelled` sigue exigiendo comentario y devuelve la `closingNote`;
+    detalle, listado y `?status=cancelled` reflejan la cancelación; SQL directo:
+    `closing_author_id`/`closing_author_name` del token y `closed_at` del reloj.
+    `OpenApiIT` (se amplía el bucle a `cancel`) — ruta `post` con `bearerAuth`,
+    `401`, `403`, `404`, `409` y sin esquema de cuerpo.
+  - _Requisitos: REQ-32, REQ-33, REQ-34, REQ-35, REQ-36, REQ-37, REQ-38, REQ-39,
+    REQ-42, REQ-43, REQ-44, REQ-46, REQ-48_
+
+- [x] 18. Concurrencia de `cancel`
+  - Detalle: sin código nuevo; fija que la actualización condicional de la tarea 15
+    deja un solo ganador.
+  - Depende de: 17
+  - Verificación: `WorkOrderFlowConcurrencyIT` (se amplía), 20 repeticiones cada uno —
+    `cancel` del team leader contra `take` del técnico habilitado, y dos `cancel` a la
+    vez: exactamente un `200` y un `409` con el estado real; nunca una `cancelled` con
+    dueño ni una `in-progress` sin dueño (consulta SQL del estado final).
+  - _Requisitos: REQ-40_
+
+- [x] 19. Dashboard cuenta la cancelación
+  - Detalle: sin código de producción (design.md §10, dashboard); solo pruebas que lo
+    fijan. Si alguna falla, se informa antes de tocar `dashboard` (la decisión es del
+    usuario).
+  - Depende de: 12, 17
+  - Verificación: `DashboardControllerIT` (se amplía) — cancelar una `pending` por la
+    API y pedir `GET /dashboard/summary` con un período que incluya el instante:
+    `closedInPeriod.cancelled` y `closedInPeriod.total` suben en 1, `byStatus.cancelled`
+    sube en 1, `byStatus.pending` y `open` bajan en 1, el `total` raíz y
+    `averageResolutionMinutes` no cambian, `GET /dashboard/workload` no la incluye; con
+    un período anterior no la cuenta; sin `500`. `DashboardStatisticsAdapterIT` (se
+    amplía) — `snapshot` cuenta en `ClosedStats.cancelled` una `cancelled` sin dueño ni
+    comentario con `closed_at` dentro del período.
+  - _Requisitos: REQ-45_
+
+- [x] 20. Suite completa y recorrido de REQ-32 a REQ-48
+  - Detalle: correr `./gradlew test` completo; agregar al final de este archivo el
+    recorrido de REQ-32 a REQ-48 con su evidencia y los desvíos, como hizo la spec
+    original. Informar cualquier test previo en rojo. Proponer al usuario (no
+    aplicar sin su aprobación) la actualización del README (endpoint `cancel`) y de
+    la sección "Estado actual" de `CLAUDE.md` (enmienda 04-A, y que las próximas
+    migraciones numeran desde `V10`).
+  - Depende de: 12, 13, 14, 15, 16, 17, 18, 19
+  - Verificación: `./gradlew test` pasa; cada requisito de la enmienda tiene al menos un
+    test con su id en el nombre o en la tabla del recorrido.
+  - _Requisitos: REQ-32 a REQ-48_
+
+## Cobertura de la enmienda
+
+| REQ | Tareas |
+|---|---|
+| 32 | 13, 15, 16, 17 |
+| 33 | 17 |
+| 34, 38 | 14, 16, 17 |
+| 35 | 17 |
+| 36, 37 | 16, 17 |
+| 39, 48 | 16, 17 |
+| 40 | 15, 18 |
+| 41, 47 | 12 |
+| 42 | 13, 15, 17 |
+| 43, 44 | 13, 17 |
+| 45 | 19 |
+| 46 | 17 |
+
+Fuera de esta repo, para avisarle al usuario y no tocar: `verify-contract.mjs` del
+frontend (`../angular-enterprise-lab/.claude/specs/018-integracion-api-backend/`, spec 018, T11)
+necesita sumar `POST /work-orders/{id}/cancel`.
+
+## Recorrido de REQ-32 a REQ-48
+
+Verificado con `./gradlew test` completo en verde (2026-10-19): 1123 tests, 0 fallos,
+0 errores, 0 omitidos. Abreviaturas: WFST = `WorkOrderFlowServiceTest`, WFIT =
+`WorkOrderFlowControllerIT`, WCCIT = `WorkOrderFlowConcurrencyIT`, WPT =
+`WorkOrderPermissionsTest`, WRA = `WorkOrderRepositoryAdapterIT`, WMT =
+`WorkOrderMapperTest`, WCMIT = `WorkOrdersCancelMigrationIT`, DCIT =
+`DashboardControllerIT`, DSAIT = `DashboardStatisticsAdapterIT`, OAIT = `OpenApiIT`.
+
+| REQ | Evidencia |
+|---|---|
+| 32 | WFIT `req32_administratorAndTeamLeaderCancel…`; WRA `req32_req42_cancelOfAPendingOrder…`; WMT `req32_req42_aRowWithAuthorAndWithoutComment…` |
+| 33 | WFIT `req33_theBodyOfCancelIsIgnoredWhateverItIs` |
+| 34 | WPT `req34_aMissingRoleIsForbiddenToCancel` (más la matriz de roles); WFIT `req34_techniciansEvenTheOwnerAndProduction…` |
+| 35 | WFST `req35_cancelOfATokenWithAMissingUserIsUnauthorized`; WFIT `req35_cancelWithoutTokenOrWithAnInvalidToken…` |
+| 36 | WFST `req36_…`; WFIT `req36_cancelOfAnUnknownOrNonNumericIdIsNotFound` |
+| 37 | WFST `req37_…`; WFIT `req37_cancelOfAnOrderThatIsNotPending…` |
+| 38 | WFIT `req38_theRoleIsCheckedBeforeTheStateAndBeforeTheExistence` |
+| 39 | WFST `req39_…`; WFIT `req39_aCancelledOrderCannotBeCancelledAgainNorTaken…` |
+| 40 | WCCIT (cancel contra take y dos cancel); WRA (entity vieja y 0 filas); WFST (carrera perdida y borrado) |
+| 41 | WCMIT `req41_…` (cancelada sin dueño aceptada, combinaciones de `V8` intactas, 32 filas sin tocar) |
+| 42 | WFIT `req42_cancelStoresTheTokenUserAndTheServerTime…`; WRA; WMT |
+| 43 | WFIT `req43_theTechnicianCloseAsCancelled…`; WMT `req43_req44_aRowWithComment…` |
+| 44 | WFIT `req44_theDetailTheListAndTheStatusFilter…`; WMT `req44_aRowWithoutAuthorNorComment…` |
+| 45 | DCIT (período que incluye el instante y período pasado); DSAIT `req45_…` |
+| 46 | OAIT `req46_apiDocsListTheCancelEndpoint…` |
+| 47 | WCMIT `req47_…` (cinco tests, una por combinación rechazada) |
+| 48 | WFST `req48_…`; WFIT `req48_aCancelledOrderCannotBeClosedNorReleased` |
+
+Desvíos respecto del diseño: ninguno registrado. Un primer intento de la suite, sin
+Docker activo, dio 52 fallos, todos en clases `*IT` (Testcontainers); con Docker
+activo la suite pasó completa sin tocar código.

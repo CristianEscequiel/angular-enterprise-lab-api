@@ -171,6 +171,21 @@ class OpenApiIT extends AbstractPostgresIT {
                 .containsOnlyKeys("data", "page", "size", "totalItems", "totalPages");
     }
 
+    /** REQ-46 (spec 04, enmienda 04-A): {@code POST /work-orders/{id}/cancel}, sin cuerpo y con bearerAuth. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void req46_apiDocsListTheCancelEndpointWithTheBearerSchemeAndNoRequestBody() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+
+        Map<String, Object> flow = (Map<String, Object>) paths.get("/work-orders/{id}/cancel");
+        assertThat(flow).containsOnlyKeys("post");
+        Map<String, Object> post = (Map<String, Object>) flow.get("post");
+        assertThat(post.get("security")).isEqualTo(List.of(Map.of(OpenApiConfig.BEARER_AUTH, List.of())));
+        assertThat(post).containsKey("summary").doesNotContainKey("requestBody");
+        assertThat((Map<String, Object>) post.get("responses")).containsKeys("200", "401", "403", "404", "409");
+    }
+
     /**
      * Enmienda 00-A: el contrato de la sesión (REQ-17, REQ-20) está en la documentación generada
      * desde el código: el login devuelve {@code {token, user}} y {@code /auth/me} el mismo

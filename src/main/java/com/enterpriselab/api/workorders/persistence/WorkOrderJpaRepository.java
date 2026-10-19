@@ -33,4 +33,10 @@ interface WorkOrderJpaRepository
     @Query("update WorkOrderEntity o set o.status = 'pending', o.takenById = null, "
             + "o.takenByName = null, o.takenAt = null where o.id = :id and o.status = 'in-progress'")
     int release(@Param("id") long id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update WorkOrderEntity o set o.status = 'cancelled', o.closingAuthorId = :userId, "
+            + "o.closingAuthorName = :name, o.closedAt = :at where o.id = :id and o.status = 'pending'")
+    int cancel(@Param("id") long id, @Param("userId") long userId, @Param("name") String name,
+            @Param("at") Instant at);
 }

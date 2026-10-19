@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.enterpriselab.api.shared.domain.NotFoundException;
 import com.enterpriselab.api.shared.domain.PageQuery;
 import com.enterpriselab.api.shared.domain.PageResult;
+import com.enterpriselab.api.workorders.domain.Cancellation;
 import com.enterpriselab.api.workorders.domain.ClosingNote;
 import com.enterpriselab.api.workorders.domain.TakenBy;
 import com.enterpriselab.api.workorders.domain.WorkOrder;
@@ -88,6 +89,12 @@ class WorkOrderRepositoryAdapter implements WorkOrderRepository {
     @Transactional
     public Optional<WorkOrder> release(long id) {
         return reread(id, jpaRepository.release(id));
+    }
+
+    @Override
+    @Transactional
+    public Optional<WorkOrder> cancel(long id, Cancellation by) {
+        return reread(id, jpaRepository.cancel(id, by.authorId(), by.authorName(), by.at()));
     }
 
     /** 0 filas tocadas: la condición ya no se cumple y el servicio reevalúa; 1: se relee en la misma transacción. */
