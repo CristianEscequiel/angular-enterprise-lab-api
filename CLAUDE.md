@@ -123,8 +123,8 @@ aprobación, aunque el pedido parezca claro.
   WORK_ORDER_NOT_PENDING` en otro estado). La cancelada no tiene dueño ni
   `closingNote` en la respuesta; quién canceló y cuándo se guardan en
   `closing_author_*` y `closed_at`. Migración `V9` (relaja dos `CHECK` de `V8`).
-  Orden de errores `401 → 403 → 404 → 409`. Pendiente: cierre formal (auditor y
-  verificador) y que el workflow de CI termine en verde en un PR.
+  Orden de errores `401 → 403 → 404 → 409`. Cierre formal hecho (auditor
+  aprobable, verificador cerrable).
 - Spec 05 (dashboard, módulo `dashboard`): `requirements.md` (REQ-1 a REQ-20),
   `design.md` y `tasks.md` aprobados (2026-10-01). Las 8 tareas están implementadas y
   marcadas; `./gradlew test` pasa y el recorrido de REQ-1 a REQ-20 con su evidencia está
