@@ -49,7 +49,7 @@ Alcance descartado explícitamente para esta spec:
 
 - Gráficos, exportación a archivo y tendencias históricas por día o semana.
 - Indicadores por máquina, por parte o por equipo (las órdenes se pueden filtrar
-  por máquina recién en una spec futura, 013d lo dejó fuera).
+  por máquina recién en una spec futura, 17 lo dejó fuera).
 - Metas, alertas y notificaciones (SLA vencidos, órdenes sin tomar hace X horas).
 - Indicadores personalizados por usuario o por rol distintos de los dos endpoints.
 - Actualización en tiempo real (`push`): el cliente consulta cuando quiere.

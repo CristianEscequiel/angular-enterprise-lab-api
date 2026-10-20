@@ -33,7 +33,11 @@ externos ni multi-tenant: es un sistema interno de una organización.
    tipo de orden que ya existen en el frontend.
 3. Maestro de técnicos y equipos, con las mismas validaciones cruzadas
    (legajo único, no eliminar técnico referenciado, etc.).
-4. Indicadores de dashboard (hoy pendiente también en el frontend).
+4. Maestro de máquinas y árbol de partes.
+5. Flujo de la orden: tomar, cerrar, liberar y cancelar.
+6. Indicadores de dashboard (`/dashboard/summary` y `/dashboard/workload`).
+
+El estado de cada una está en `.claude/specs/ROADMAP.md`.
 
 ## Fuera de alcance (por ahora)
 - Multi-tenant o multi-organización.

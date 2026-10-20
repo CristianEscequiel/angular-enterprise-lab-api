@@ -8,7 +8,7 @@ el cliente: lee la orden "fresca", escribe si se cumple la condición y vuelve a
 leer, con una ventana entre lectura y escritura que el README del frontend
 reconoce ("es aceptable en el mock y el backend real lo cierra con una
 actualización condicional"). Esa actualización condicional es el centro de esta
-spec. Fuentes: ampliación de la spec 013d del frontend, `work-order.service.ts`,
+spec. Fuentes: ampliación de la spec 17 del frontend, `work-order.service.ts`,
 `work-order.permissions.ts`, las páginas de listado y de cierre. Ver
 `.claude/specs/ROADMAP.md`.
 
@@ -257,7 +257,7 @@ respuestas `403`, `404` y `409`, generados desde las anotaciones del código.
 
 - Un comportamiento por requisito: REQ-3 y REQ-13 y REQ-14 llevan dos cláusulas
   (rechazo y caso límite aceptado) porque los límites de 49/50 y 500/501
-  caracteres son un solo criterio de la 013d ("49 → bloqueado; 50 → se envía");
+  caracteres son un solo criterio de la 17 ("49 → bloqueado; 50 → se envía");
   REQ-19 agrupa los tres verbos porque la regla es una: lo cerrado no se toca.
 - Caminos no felices cubiertos: rol sin permiso (REQ-3, REQ-4, REQ-15, REQ-23),
   inexistentes (REQ-5, REQ-16, REQ-25), estado incorrecto (REQ-6, REQ-17,
@@ -295,7 +295,7 @@ respuestas `403`, `404` y `409`, generados desde las anotaciones del código.
 
 ## Contexto y decisiones (enmienda)
 
-El frontend (`angular-enterprise-lab`, spec 019, rama `feat/019-cancelar-orden`) ya
+El frontend (`angular-enterprise-lab`, spec 20, rama `feat/019-cancelar-orden`) ya
 consume `POST /work-orders/{id}/cancel` y el endpoint no existe. Hoy una orden pasa
 a `cancelled` solo por `close` con `outcome` `cancelled` (técnico dueño, con
 comentario de 50 a 500). Esta enmienda suma **una transición nueva** a la máquina de
@@ -476,5 +476,5 @@ respuestas `200`, `403`, `404` y `409`, generada desde las anotaciones del códi
   4. **REQ-45 no pide cambios en el dashboard**: se fija con una prueba de
      integración, no con código nuevo.
 - Fuera de la API, para avisarte: si el repo del frontend tiene un script de
-  contrato contra la API real (spec 018, T11), habría que sumarle este endpoint; no
+  contrato contra la API real (spec 19, T11), habría que sumarle este endpoint; no
   lo toco.

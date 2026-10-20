@@ -8,7 +8,7 @@ Tercera spec del backend, módulo `machines` (propio, al mismo nivel que
 `/partes`), donde el código único, la existencia de la máquina y del padre, y el
 bloqueo de bajas los verifica el cliente antes de escribir. Es la base de datos
 que la spec 03 va a usar para ubicar cada orden ("qué máquina y qué parte").
-Fuentes: specs 013a y 013d del frontend, sus formularios y servicios, y
+Fuentes: specs 14 y 17 del frontend, sus formularios y servicios, y
 `db.json`. Ver `.claude/specs/ROADMAP.md`.
 
 Decisiones tomadas para esta spec:

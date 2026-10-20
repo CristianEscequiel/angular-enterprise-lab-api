@@ -325,7 +325,7 @@ vale igual; acá solo lo que cambia.
 | Entity | `WorkOrderEntity` sin cambios (`updatable = false` se mantiene); solo suma la consulta `@Modifying` | §1, "Mutación en el entity" |
 | Dashboard | **Sin cambios de código.** `CLOSED_SQL` filtra por `status in ('completed','cancelled')` y `closed_at`; el promedio se lee solo de la fila `completed`; no usa dueño ni comentario | REQ-45. Una IT lo fija |
 | OpenAPI | `@Operation` y `@ApiResponses` (`200`, `404`, `409`) como `release`; los `401`/`403` los agrega el mismo mecanismo que en `take`/`release` | REQ-46 |
-| Frontend | Fuera de alcance. `verify-contract.mjs` (spec 018, T11) del frontend necesita sumar el endpoint: se le avisa al usuario, no se toca | Pedido del usuario |
+| Frontend | Fuera de alcance. `verify-contract.mjs` (spec 19, T11) del frontend necesita sumar el endpoint: se le avisa al usuario, no se toca | Pedido del usuario |
 
 ## 11. Migración `V9`
 

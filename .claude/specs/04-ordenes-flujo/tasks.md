@@ -394,7 +394,7 @@ que verifica en el nombre (p. ej. `req32_cancelPendingOrderReturnsCancelled`), p
 | 46 | 17 |
 
 Fuera de esta repo, para avisarle al usuario y no tocar: `verify-contract.mjs` del
-frontend (`../angular-enterprise-lab/.claude/specs/018-integracion-api-backend/`, spec 018, T11)
+frontend (`../angular-enterprise-lab/.claude/specs/19-integracion-api-backend/`, spec 19, T11)
 necesita sumar `POST /work-orders/{id}/cancel`.
 
 ## Recorrido de REQ-32 a REQ-48
