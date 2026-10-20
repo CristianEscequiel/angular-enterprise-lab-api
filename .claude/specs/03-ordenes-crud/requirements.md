@@ -6,8 +6,8 @@ Cuarta spec del backend, módulo `workorders`. Pasa al servidor lo que hoy hacen
 `WorkOrdersService` y `work-order.permissions.ts` del frontend sobre JSON
 Server (`/work-orders`): el listado con búsqueda, paginación y filtros, el alta,
 la edición y la baja, con los permisos por rol y las reglas que hoy solo vigila
-el cliente. Tomar, cerrar y liberar una orden es la spec 04. Fuentes: specs 012,
-013b y 013d del frontend, sus páginas de listado, alta y edición, el formulario
+el cliente. Tomar, cerrar y liberar una orden es la spec 04. Fuentes: specs 13,
+15 y 17 del frontend, sus páginas de listado, alta y edición, el formulario
 compartido y `db.json`. Ver `.claude/specs/ROADMAP.md`.
 
 Decisiones tomadas para esta spec:
@@ -16,7 +16,7 @@ Decisiones tomadas para esta spec:
 - **Paginación**: parámetros `page` (desde 1, por defecto 1) y `size` (por
   defecto 10, máximo 100); respuesta `{data, page, size, totalItems, totalPages}`.
   Reemplaza a `_page`, `_per_page` y `PaginatedResponse` de JSON Server; el
-  frontend lo adapta en su "spec 018". El orden es por `id` ascendente, como hoy.
+  frontend lo adapta en su "spec 19". El orden es por `id` ascendente, como hoy.
   **Formato y orden a confirmar al aprobar.**
 - Representación de una orden: `id` (string, ROADMAP D2), `title`,
   `description`, `machineRef` (`machineId`, `partId` o `null`, `breadcrumb`,
@@ -42,7 +42,7 @@ Decisiones tomadas para esta spec:
   inmutable se rechaza** si se intenta cambiar (el tipo y la referencia a la
   máquina, requisitos 33 y 34), igual que `legajo` en la spec 01.
 - **Una máquina o una parte referenciada por una orden se puede eliminar**: la
-  orden conserva su `machineRef` con el `breadcrumb` como historia (013d dejó
+  orden conserva su `machineRef` con el `breadcrumb` como historia (17 dejó
   explícito que el snapshot resuelve ese caso y no pide lógica adicional). Por
   eso `work_orders` no tiene clave foránea hacia `machines` ni `parts`.
   **Decisión a confirmar al aprobar**: la alternativa es bloquear esas bajas con
@@ -70,8 +70,8 @@ Restricciones tomadas del frontend, que se mantienen tal cual:
 Alcance descartado explícitamente para esta spec:
 
 - Tomar, cerrar y liberar (spec 04) y cualquier otro cambio de estado.
-- Filtrar u ordenar por tipo, máquina o parte (013d lo dejó fuera).
-- Fecha estimada de las órdenes preventivas y correctivas: 013b la menciona,
+- Filtrar u ordenar por tipo, máquina o parte (17 lo dejó fuera).
+- Fecha estimada de las órdenes preventivas y correctivas: 15 la menciona,
   pero el modelo del frontend no la tiene.
 - Especialidad requerida por la orden, adjuntos e historial de cambios.
 - Búsqueda por descripción.

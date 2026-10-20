@@ -19,7 +19,7 @@ Alcance descartado explícitamente para esta spec:
 Restricción tomada del frontend existente: los cuatro roles
 (`administrador`, `team-leader-mantenimiento`, `personal-produccion`,
 `tecnico`) y el hecho de que un `tecnico` tiene `legajo`, especialidad y
-tipo de equipo (ver `auth.model.ts` y specs 010/013b/013c del frontend) se
+tipo de equipo (ver `auth.model.ts` y specs 11/013b/013c del frontend) se
 mantienen tal cual — no se rediseñan acá.
 
 ## Requisitos

@@ -8,7 +8,7 @@ Objetivo: cubrir la totalidad de las funcionalidades de `angular-enterprise-lab`
 spec sigue el flujo completo (`requirements.md` → `design.md` → `tasks.md`, con
 aprobación entre fases, ver `CLAUDE.md`).
 
-Fuentes usadas: README y `CLAUDE.md` del frontend, sus specs 001–013d
+Fuentes usadas: README y `CLAUDE.md` del frontend, sus specs 00–17
 (`.claude/specs/`), los modelos, políticas de permisos y servicios de cada
 feature, y `db.json`.
 
@@ -142,7 +142,7 @@ observabilidad.
 
 | # | Decisión | Recomendación |
 |---|---|---|
-| D1 | Contrato de API | **Decidido: REST limpio en inglés** (`steering/tech.md` permitía este cambio si una spec lo decide explícitamente). Rutas `/technicians`, `/teams`, `/machines`, `/parts`, `/work-orders`, `/auth/login`. Paginación con `page` (desde 1) y `size`, filtros con el nombre del campo (`title`, `status`, `priority`) y respuesta `{data, page, size, totalItems, totalPages}`; el formato exacto se cierra en el `requirements.md` de la spec 03. El frontend tendrá que adaptar sus servicios (su "spec 018"), con `PaginatedResponse` incluido. |
+| D1 | Contrato de API | **Decidido: REST limpio en inglés** (`steering/tech.md` permitía este cambio si una spec lo decide explícitamente). Rutas `/technicians`, `/teams`, `/machines`, `/parts`, `/work-orders`, `/auth/login`. Paginación con `page` (desde 1) y `size`, filtros con el nombre del campo (`title`, `status`, `priority`) y respuesta `{data, page, size, totalItems, totalPages}`; el formato exacto se cierra en el `requirements.md` de la spec 03. El frontend tendrá que adaptar sus servicios (su "spec 19"), con `PaginatedResponse` incluido. |
 | D2 | Ids | Se serializan como **string** (el frontend los tipa así y JSON Server los devolvía así), aunque en Postgres sean `BIGSERIAL`. |
 | D3 | Snapshots | El servidor arma `breadcrumb`, `takenBy.name` y `closingNote.authorName` (autoridad real, no el cliente). |
 | D4 | Transiciones de estado | Acciones dedicadas `POST /work-orders/{id}/take`, `/close`, `/release` con actualización condicional; en la spec 03 el `PUT` no puede cambiar estado ni dueño. En el frontend solo cambian 3 métodos de `WorkOrdersService`. |
@@ -175,7 +175,7 @@ pendiente la 5. Se dejan como estaban escritas, para el historial:
 - Alta y gestión de usuarios: ninguna pantalla usa `UsersService.create`; solo
   se usa `hasTechnicianAccount` (para bloquear la baja de un técnico).
 - Recuperación de contraseña, notificaciones y multi-tenant.
-- La migración del frontend a esta API (la "spec 018" del frontend): vive en
+- La migración del frontend a esta API (la "spec 19" del frontend): vive en
   ese repo.
 
 ## 7. Próximos pasos

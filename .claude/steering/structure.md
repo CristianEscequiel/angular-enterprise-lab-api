@@ -7,8 +7,9 @@ inclusion: always
 ## Organización de carpetas
 ```
 angular-enterprise-lab-api/
-├── steering/                  # este contexto (product/tech/structure)
-├── specs/<n>-<nombre>/        # requirements.md, design.md, tasks.md
+├── .claude/
+│   ├── steering/              # este contexto (product/tech/structure)
+│   └── specs/<NN>-<nombre>/   # requirements.md, design.md, tasks.md; mapa en ROADMAP.md
 ├── src/main/java/com/enterpriselab/api/
 │   ├── auth/
 │   │   ├── web/                # AuthController, DTOs de request/response
@@ -19,19 +20,31 @@ angular-enterprise-lab-api/
 │   │   ├── web/ | domain/ | persistence/
 │   ├── maintenance/            # técnicos + equipos, misma razón que en el frontend
 │   │   ├── web/ | domain/ | persistence/
-│   ├── shared/                  # RestExceptionHandler global, tipos de error, paginación
+│   ├── machines/               # máquinas + árbol de partes
+│   │   ├── web/ | domain/ | persistence/
+│   ├── dashboard/              # indicadores (lecturas agregadas sobre work_orders)
+│   │   ├── web/ | domain/ | persistence/
+│   ├── shared/                  # config/ (ClockConfig), domain/ (excepciones genéricas,
+│   │                            #   NumericId, PageQuery/PageResult), persistence/
+│   │                            #   (ConstraintViolations), web/ (ApiError,
+│   │                            #   RestExceptionHandler, PageResponse, OpenApiConfig)
 │   └── ApiApplication.java
 ├── src/main/resources/
 │   ├── application.yml
-│   └── db/migration/            # V1__init.sql, V2__..., Flyway
+│   └── db/
+│       ├── migration/           # V1__init.sql, V2__..., Flyway (todos los perfiles)
+│       └── seed/                # V<n>_1__seed_*.sql, solo perfil dev
 ├── src/test/java/...             # misma estructura que main, unitarios + integración
 ├── docker-compose.yaml           # Postgres local
-└── build.gradle(.kts)
+├── Dockerfile
+└── build.gradle.kts
 ```
 
 ## Convención de nombres
 - Paquetes en minúsculas sin guiones, por feature (`auth`, `workorders`,
-  `maintenance`), no por tipo de archivo a nivel raíz.
+  `maintenance`, `machines`, `dashboard`), no por tipo de archivo a nivel raíz.
+- Specs: `<NN>-<nombre>` con dos dígitos desde `00`; una ampliación es una enmienda
+  (`NN-A`) dentro de la carpeta de su spec.
 - Entities: `<Nombre>Entity` (ej. `WorkOrderEntity`), igual que en
   `agenda-spring`. DTOs: `<Nombre>Request` / `<Nombre>Response`, no
   `<Nombre>Dto` genérico, para que el contrato de entrada/salida sea

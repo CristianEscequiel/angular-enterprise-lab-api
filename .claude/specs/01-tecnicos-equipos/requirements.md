@@ -6,7 +6,7 @@ Segunda spec del backend, módulo `maintenance`. Pasa al servidor lo que hoy
 hacen `TechniciansService` y `TeamsService` del frontend sobre JSON Server
 (`/tecnicos`, `/equipos`), donde la unicidad, las referencias y los permisos los
 vigila el cliente (el README del frontend lo dice: "con el backend real pasan a
-ser una FK y un índice único"). Fuentes: specs 013b y 013c del frontend, sus
+ser una FK y un índice único"). Fuentes: specs 15 y 16 del frontend, sus
 formularios y servicios, y `db.json`. Ver `.claude/specs/ROADMAP.md`.
 
 Decisiones tomadas para esta spec:
@@ -14,7 +14,7 @@ Decisiones tomadas para esta spec:
 - **Contrato REST limpio en inglés** (ROADMAP D1): `/technicians` y `/teams`.
 - **El técnico se identifica en la URL por su `legajo`** (`/technicians/{legajo}`),
   no por un id opaco: es único, no se edita y es lo que ya usa el frontend en sus
-  rutas. Un id opaco fue justamente el defecto que 013a tuvo que corregir en 013c.
+  rutas. Un id opaco fue justamente el defecto que 14 tuvo que corregir en 16.
   La respuesta igual incluye `id` como string (ROADMAP D2). **Decisión a
   confirmar al aprobar.**
 - Los equipos se identifican por `id` (string).
@@ -53,7 +53,7 @@ Alcance descartado explícitamente para esta spec:
   miembros de un equipo.
 - Validar el legajo contra un sistema externo de RRHH.
 - Unicidad del nombre de un equipo y coherencia entre el tipo de un equipo y el
-  de sus miembros: el frontend (013c) no las valida.
+  de sus miembros: el frontend (16) no las valida.
 - Paginación y búsqueda en el servidor.
 
 ## Requisitos

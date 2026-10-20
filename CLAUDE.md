@@ -3,7 +3,7 @@
 Backend real (Java 21 + Spring Boot 3) de `angular-enterprise-lab`. Reemplaza
 a JSON Server como fuente de datos y, sobre todo, mueve la autorización por
 rol del cliente (hoy editable en localStorage) a un servidor con autoridad
-real. Repo separado del frontend a propósito — ver `steering/product.md`.
+real. Repo separado del frontend a propósito — ver `.claude/steering/product.md`.
 
 ## Metodología de desarrollo
 
@@ -14,8 +14,9 @@ usuario entre cada fase. No avances de una fase a la siguiente sin esa
 aprobación, aunque el pedido parezca claro.
 
 - Specs en `.claude/specs/<número>-<nombre>/`, versionadas junto al código.
-- Contexto de proyecto (qué es, stack, estructura) en `steering/` — leelo
-  antes de escribir la primera spec de una sesión nueva.
+- Contexto de proyecto (qué es, stack, estructura) en `.claude/steering/` —
+  leelo antes de escribir la primera spec de una sesión nueva. El mapa de
+  specs está en `.claude/specs/ROADMAP.md`.
 - Si ya existe una spec para la feature que se está pidiendo, es una
   enmienda: se edita esa carpeta, nunca se crea una segunda para lo mismo.
 
