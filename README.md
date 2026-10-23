@@ -26,15 +26,47 @@ decisiones de diseño en `.claude/steering/` y `.claude/specs/`.
    ./gradlew bootRun --args='--spring.profiles.active=dev'
    ```
 
-   Fuera del perfil `dev` hay que definir `JWT_SECRET` (mínimo 32 bytes); sin
-   él la aplicación no arranca. `DB_PASSWORD` es opcional (por defecto
-   `enterpriselab`).
+   Fuera del perfil `dev` hay que definir `JWT_SECRET` (mínimo 32 bytes) y
+   `DB_PASSWORD`; sin ellas la aplicación no arranca (ver
+   [Variables de producción](#variables-de-producción)).
 
 3. Comprobar:
 
    - Health: <http://localhost:8080/actuator/health> → `{"status":"UP"}`
-   - Swagger UI: <http://localhost:8080/swagger-ui.html>
-   - OpenAPI JSON: <http://localhost:8080/v3/api-docs>
+   - Swagger UI: <http://localhost:8080/swagger-ui.html> (solo con el perfil `dev`)
+   - OpenAPI JSON: <http://localhost:8080/v3/api-docs> (solo con el perfil `dev`)
+
+## Variables de producción
+
+Fuera del perfil `dev` el arranque valida la configuración antes de crear ningún bean y falla
+con un mensaje que nombra la variable (nunca su valor):
+
+| Variable | Regla |
+| --- | --- |
+| `JWT_SECRET` | Obligatoria. Mínimo 32 bytes (UTF-8). Firma los tokens HS256. |
+| `DB_PASSWORD` | Obligatoria fuera de `dev` (sin valor por defecto). En `dev` vale `enterpriselab` si no se define. |
+| `APP_CORS_ALLOWED_ORIGINS` (propiedad `app.cors.allowed-origins`) | Orígenes del frontend, separados por comas. Un comodín (`*`) es un error de configuración: la aplicación no arranca. Por defecto `http://localhost:4200`. |
+
+Swagger y `/v3/api-docs` solo existen con el perfil `dev`. Si se fija
+`SPRINGDOC_SWAGGER_UI_ENABLED=true` (o `SPRINGDOC_API_DOCS_ENABLED=true`) en producción, se
+publican igual: es una decisión explícita del operador.
+
+### Límite de intentos de login
+
+`POST /auth/login` bloquea tras demasiados intentos fallidos, por usuario y por IP. Con el
+bloqueo responde `429` con `{code: "TOO_MANY_ATTEMPTS", …}` y la cabecera `Retry-After` (segundos
+enteros, expuesta por CORS), aunque la contraseña sea correcta. Se configura con:
+
+| Propiedad | Por defecto |
+| --- | --- |
+| `app.security.login-rate-limit.max-attempts-per-user` | `5` |
+| `app.security.login-rate-limit.max-attempts-per-ip` | `20` |
+| `app.security.login-rate-limit.window` | `15m` (ventana y duración del bloqueo) |
+
+Limitaciones: el contador está **en memoria**, de una sola instancia, y se reinicia con la
+aplicación. La IP es la de la conexión (`server.forward-headers-strategy: none`): detrás de un
+proxy inverso todos los usuarios comparten el contador de IP hasta que se configure una lista de
+proxies confiables.
 
 ## Usuarios de desarrollo (seed)
 
@@ -273,9 +305,9 @@ entre `createdAt` y el cierre, solo órdenes `completed`; `null` si no hay ningu
 | `POST /work-orders/{id}/cancel` | administrador, team leader | Cancela una orden `pending` (pasa a `cancelled`, sin dueño ni comentario; ignora el cuerpo); `403` a técnico y producción; `409 WORK_ORDER_NOT_PENDING` |
 | `GET /dashboard/summary` | autenticado | Conteos por estado, prioridad y tipo, `total`, `open`, cerradas en el período y tiempo promedio de resolución; `from` y `to` opcionales; `400` si una fecha es inválida |
 | `GET /dashboard/workload` | administrador, team leader | Técnicos con órdenes `in-progress` y cuántas tiene cada uno |
-| `/swagger-ui.html`, `/v3/api-docs/**` | público | Documentación OpenAPI          |
+| `/swagger-ui.html`, `/v3/api-docs/**` | público, solo con el perfil `dev` | Documentación OpenAPI (fuera de `dev` responde `401` sin token y `404` con token) |
 
-Los errores controlados responden siempre `{code, message, timestamp, path}` (y `details` en `400` de validación y en los `409` de las transiciones de una orden).
+Los errores controlados responden siempre `{code, message, timestamp, path}` (y `details` en `400` de validación y en los `409` de las transiciones de una orden). Además de los ya mencionados: `405 METHOD_NOT_ALLOWED` (con `Allow`), `415 UNSUPPORTED_MEDIA_TYPE`, `400 VALIDATION_ERROR` para un parámetro faltante o mal tipado, `404 NOT_FOUND` para una ruta inexistente, `429 TOO_MANY_ATTEMPTS` en el login y `409 WORK_ORDER_CONCURRENT_UPDATE` si una transición de una orden choca tres veces con otras operaciones (no se modificó nada: se puede reintentar).
 
 ## Tests
 

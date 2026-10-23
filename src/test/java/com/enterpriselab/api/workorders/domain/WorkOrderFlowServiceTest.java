@@ -198,13 +198,15 @@ class WorkOrderFlowServiceTest {
     }
 
     @Test
-    void takeGivesUpWithAnIllegalStateAfterThreeAttempts() {
+    void req13_1_takeGivesUpWithAConcurrentUpdateConflictAfterThreeAttempts() {
         givenUser(GUARDIA);
         when(orders.findById(7L)).thenReturn(Optional.of(order(7L, WorkOrderType.PRONTO_INTERVENCION,
                 WorkOrderStatus.PENDING, null)));
         when(orders.take(anyLong(), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.take("tecnico", "7")).isInstanceOf(IllegalStateException.class);
+        ConflictException conflict = catchThrowableOfType(ConflictException.class, () -> service.take("tecnico", "7"));
+
+        assertThat(conflict.code()).isEqualTo("WORK_ORDER_CONCURRENT_UPDATE");
         verify(orders, times(3)).take(anyLong(), any());
     }
 
@@ -416,15 +418,17 @@ class WorkOrderFlowServiceTest {
     }
 
     @Test
-    void closeGivesUpAfterThreeAttempts() {
+    void req13_1_closeGivesUpWithAConcurrentUpdateConflictAfterThreeAttempts() {
         givenUser(GUARDIA);
         TakenBy mine = new TakenBy(5L, "x", NOW_MILLIS);
         when(orders.findById(7L)).thenReturn(Optional.of(order(7L, WorkOrderType.PRONTO_INTERVENCION,
                 WorkOrderStatus.IN_PROGRESS, mine)));
         when(orders.close(anyLong(), anyLong(), any(), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.close("tecnico", "7", validClose()))
-                .isInstanceOf(IllegalStateException.class);
+        ConflictException conflict = catchThrowableOfType(ConflictException.class,
+                () -> service.close("tecnico", "7", validClose()));
+
+        assertThat(conflict.code()).isEqualTo("WORK_ORDER_CONCURRENT_UPDATE");
         verify(orders, times(3)).close(anyLong(), anyLong(), any(), any());
     }
 
@@ -642,6 +646,76 @@ class WorkOrderFlowServiceTest {
     // =====================================================================================================
     // Ayudas
     // =====================================================================================================
+
+    @Test
+    void req13_1_releaseGivesUpWithAConcurrentUpdateConflictAfterThreeAttempts() {
+        givenUser(admin());
+        TakenBy mine = new TakenBy(5L, "x", NOW_MILLIS);
+        when(orders.findById(7L)).thenReturn(Optional.of(order(7L, WorkOrderType.PRONTO_INTERVENCION,
+                WorkOrderStatus.IN_PROGRESS, mine)));
+        when(orders.release(anyLong())).thenReturn(Optional.empty());
+
+        ConflictException conflict = catchThrowableOfType(ConflictException.class, () -> service.release("admin", "7"));
+
+        assertThat(conflict.code()).isEqualTo("WORK_ORDER_CONCURRENT_UPDATE");
+        assertThat(conflict).isNotInstanceOf(IllegalStateException.class);
+        verify(orders, times(3)).findById(7L);
+        verify(orders, times(3)).release(anyLong());
+    }
+
+    @Test
+    void req13_1_cancelGivesUpWithAConcurrentUpdateConflictAfterThreeAttempts() {
+        givenUser(admin());
+        when(orders.findById(7L)).thenReturn(Optional.of(order(7L, WorkOrderType.PRONTO_INTERVENCION,
+                WorkOrderStatus.PENDING, null)));
+        when(orders.cancel(anyLong(), any())).thenReturn(Optional.empty());
+
+        ConflictException conflict = catchThrowableOfType(ConflictException.class, () -> service.cancel("admin", "7"));
+
+        assertThat(conflict.code()).isEqualTo("WORK_ORDER_CONCURRENT_UPDATE");
+        verify(orders, times(3)).findById(7L);
+        verify(orders, times(3)).cancel(anyLong(), any());
+    }
+
+    @Test
+    void req13_2_whenTheAttemptsRunOutNothingIsWritten() {
+        givenUser(GUARDIA);
+        when(orders.findById(7L)).thenReturn(Optional.of(order(7L, WorkOrderType.PRONTO_INTERVENCION,
+                WorkOrderStatus.PENDING, null)));
+        when(orders.take(anyLong(), any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.take("tecnico", "7")).isInstanceOf(ConflictException.class);
+
+        verify(orders, never()).save(any());
+        verify(orders, never()).deleteById(anyLong());
+        verify(orders, never()).close(anyLong(), anyLong(), any(), any());
+        verify(orders, never()).release(anyLong());
+        verify(orders, never()).cancel(anyLong(), any());
+    }
+
+    @Test
+    void req13_3_theExhaustedAttemptsAreLoggedAsAWarningWithTheOrderId() {
+        givenUser(GUARDIA);
+        when(orders.findById(7L)).thenReturn(Optional.of(order(7L, WorkOrderType.PRONTO_INTERVENCION,
+                WorkOrderStatus.PENDING, null)));
+        when(orders.take(anyLong(), any())).thenReturn(Optional.empty());
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(WorkOrderFlowService.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            assertThatThrownBy(() -> service.take("tecnico", "7")).isInstanceOf(ConflictException.class);
+
+            assertThat(appender.list).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+                assertThat(event.getFormattedMessage()).contains("7");
+            });
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
 
     private void givenUser(User user) {
         when(auth.currentUser(any())).thenReturn(user);

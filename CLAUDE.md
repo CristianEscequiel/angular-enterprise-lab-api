@@ -136,6 +136,18 @@ aprobación, aunque el pedido parezca claro.
   inProgress}`). Sin migración: `DashboardStatisticsAdapter` lee `work_orders` con
   `JdbcTemplate` y las dos consultas del resumen corren en una transacción `REPEATABLE
   READ` de solo lectura. Pendiente: que el workflow de CI termine en verde en un PR.
+- Spec 06 (hardening de seguridad, transversal: `auth`, `shared`, `workorders`): `requirements.md`
+  (REQ-1 a REQ-14, NFR-1 a NFR-3), `design.md` y `tasks.md` aprobados (2026-10-22). Las 11 tareas
+  están implementadas y marcadas; `./gradlew build` pasa (1206 tests). Implementado: límite de
+  intentos de `POST /auth/login` (`LoginAttemptLimiter` en `auth/domain`, 5 por usuario / 20 por IP /
+  15 min, en memoria; `429 TOO_MANY_ATTEMPTS` con `Retry-After`, expuesto por CORS); springdoc y
+  `permitAll` de Swagger solo con `dev`; `StartupConfigChecker` (`EnvironmentPostProcessor`) exige
+  `JWT_SECRET` >= 32 bytes y `DB_PASSWORD` fuera de `dev` (un placeholder sin resolver se enlazaba
+  como texto literal y la app arrancaba firmando con `${JWT_SECRET}`); `405`/`415`/`400` de Spring MVC
+  con `ApiError`; `409 WORK_ORDER_CONCURRENT_UPDATE` al agotar los reintentos. Sin migraciones.
+  Pendiente: confirmar en F0 que producción define `JWT_SECRET` y `DB_PASSWORD` antes de desplegar, y
+  la enmienda 06-A (IP detrás del proxy). Los tests sin `dev` toman sus valores de
+  `src/test/resources/config/application.properties`.
 - Próximo paso: el mapa de specs está en `.claude/specs/ROADMAP.md` (06 operación,
   opcional). Contrato de API decidido: REST limpio en inglés. Los
   `requirements.md` se escriben de a una spec, con aprobación entre cada una.

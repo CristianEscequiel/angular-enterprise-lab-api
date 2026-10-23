@@ -241,4 +241,18 @@ class OpenApiIT extends AbstractPostgresIT {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
+
+    /** Spec 06, REQ-14.3: el 429 del login figura en la documentación, con su cabecera Retry-After. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void req14_3_loginDocumentsTheTooManyRequestsResponseWithRetryAfter() {
+        Map<String, Object> body = restTemplate.getForEntity("/v3/api-docs", Map.class).getBody();
+        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) body.get("paths");
+        Map<String, Object> login = (Map<String, Object>) paths.get("/auth/login").get("post");
+        Map<String, Object> responses = (Map<String, Object>) login.get("responses");
+
+        assertThat(responses).containsKey("429");
+        Map<String, Object> tooMany = (Map<String, Object>) responses.get("429");
+        assertThat((Map<String, Object>) tooMany.get("headers")).containsKey("Retry-After");
+    }
 }
