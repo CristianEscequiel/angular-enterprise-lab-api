@@ -42,4 +42,21 @@ class CorsIT extends AbstractPostgresIT {
         headers.setAccessControlRequestHeaders(java.util.List.of("Authorization"));
         return restTemplate.exchange("/auth/me", HttpMethod.OPTIONS, new HttpEntity<>(headers), Void.class);
     }
+
+    @Test
+    void req3_3_aTooManyRequestsResponseExposesRetryAfterToAnAllowedOrigin() {
+        ResponseEntity<java.util.Map> login = restTemplate.postForEntity("/auth/login",
+                java.util.Map.of("username", "admin", "password", "admin123"), java.util.Map.class);
+        String token = (String) login.getBody().get("token");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setOrigin("http://localhost:4200");
+        headers.setBearerAuth(token);
+
+        ResponseEntity<String> response = restTemplate.exchange("/test/too-many?millis=5000", HttpMethod.GET,
+                new HttpEntity<>(headers), String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(429);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("5");
+        assertThat(response.getHeaders().getAccessControlExposeHeaders()).contains("Retry-After");
+    }
 }

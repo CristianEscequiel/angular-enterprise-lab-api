@@ -49,7 +49,7 @@ que hay que sumarlos (se actualiza `structure.md` al aprobar este roadmap).
 | 03 | Órdenes de trabajo: alta, consulta, edición, baja y listado | `workorders` | 00, 02 (**hecha**; falta ver el CI en verde en el PR) |
 | 04 | Órdenes de trabajo: tomar, cerrar y liberar | `workorders` | 03, 01, 00-A |
 | 05 | Dashboard: indicadores | `dashboard` | 03, 04 |
-| 06 | Operación y producción (transversal, opcional) | todos | todas |
+| 06 | Hardening de seguridad (transversal, **hecha**) | auth, shared, workorders | 00, 04 |
 
 ```mermaid
 flowchart LR
@@ -131,12 +131,15 @@ Propuesta a validar, porque el frontend todavía no define los indicadores:
 `in-progress`); cerradas en un período; tiempo promedio de cierre; en progreso
 por técnico.
 
-### 06 — Operación y producción (opcional)
+### 06 — Hardening de seguridad (hecha, 2026-10-22)
 
-Imagen y servicio Docker para `web-stack-infrastructure`, decisión de refresh
-tokens (pendiente en `design.md` §8 de la spec 00), endurecimiento de producción
-(springdoc apagado, `JWT_SECRET` obligatorio, CORS de producción), índices y
-observabilidad.
+Tomó el endurecimiento de producción que esta entrada reservaba: límite de intentos de
+`POST /auth/login` (por usuario y por IP, en memoria, `429` + `Retry-After`), springdoc solo
+con `dev`, `JWT_SECRET` (>= 32 bytes) y `DB_PASSWORD` validados al arrancar, `405`/`415`/`400`
+de Spring MVC con `ApiError` y `409 WORK_ORDER_CONCURRENT_UPDATE`. Viene de `ROADMAP-post-auditoria.md`
+(C3). Lo demás de "operación y producción" (imagen Docker, Dependabot, acciones por SHA, índices,
+observabilidad) queda para la **spec 11** (C9); los refresh tokens, en el backlog del roadmap
+post-auditoría. Pendiente: enmienda 06-A (proxies confiables para la IP) tras F0.
 
 ## 4. Decisiones transversales
 

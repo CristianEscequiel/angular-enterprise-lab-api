@@ -1,0 +1,1 @@
+org.springframework.boot.env.EnvironmentPostProcessor=com.enterpriselab.api.shared.config.StartupConfigChecker

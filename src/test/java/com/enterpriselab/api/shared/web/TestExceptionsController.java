@@ -8,9 +8,11 @@ import jakarta.validation.constraints.NotBlank;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.enterpriselab.api.auth.domain.TooManyAttemptsException;
 import com.enterpriselab.api.auth.domain.UnknownSessionUserException;
 import com.enterpriselab.api.shared.domain.ConflictException;
 import com.enterpriselab.api.shared.domain.InvalidReferenceException;
@@ -23,6 +25,19 @@ class TestExceptionsController {
 
     @PostMapping("/test/validate")
     void validate(@RequestBody @Valid TestRequest request) {
+    }
+
+    @GetMapping("/test/too-many")
+    void tooMany(@RequestParam long millis) {
+        throw new TooManyAttemptsException(java.time.Duration.ofMillis(millis));
+    }
+
+    @GetMapping("/test/required-param")
+    void requiredParam(@RequestParam String name) {
+    }
+
+    @GetMapping("/test/typed-param")
+    void typedParam(@RequestParam int count) {
     }
 
     @GetMapping("/test/boom")

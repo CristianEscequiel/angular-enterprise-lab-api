@@ -9,6 +9,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.enterpriselab.api.auth.domain.AuthService;
@@ -32,6 +34,9 @@ public class WorkOrderFlowService {
     static final String NOT_PENDING = "WORK_ORDER_NOT_PENDING";
     static final String NOT_IN_PROGRESS = "WORK_ORDER_NOT_IN_PROGRESS";
     static final String TAKEN_BY_OTHER = "WORK_ORDER_TAKEN_BY_OTHER";
+    static final String CONCURRENT_UPDATE = "WORK_ORDER_CONCURRENT_UPDATE";
+
+    private static final Logger log = LoggerFactory.getLogger(WorkOrderFlowService.class);
 
     static final int COMMENT_MIN = 50;
     static final int COMMENT_MAX = 500;
@@ -130,8 +135,10 @@ public class WorkOrderFlowService {
                 return result.get();
             }
         }
-        throw new IllegalStateException(
-                "No se pudo aplicar la transición de la orden " + id + " tras " + MAX_ATTEMPTS + " intentos");
+        // Spec 06, REQ-13: otras operaciones ganaron las tres veces; no se modificó nada.
+        log.warn("No se pudo aplicar la transición de la orden {} tras {} intentos", id, MAX_ATTEMPTS);
+        throw new ConflictException(CONCURRENT_UPDATE,
+                "La orden " + id + " cambió mientras se procesaba; intentá de nuevo", Map.of());
     }
 
     private Instant now() {

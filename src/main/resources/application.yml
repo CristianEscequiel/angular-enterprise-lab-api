@@ -4,7 +4,8 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/enterpriselab
     username: enterpriselab
-    password: ${DB_PASSWORD:enterpriselab}
+    # Sin default: fuera de "dev", StartupConfigChecker hace fallar el arranque si falta.
+    password: ${DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -12,8 +13,18 @@ spring:
     locations: classpath:db/migration
 
 server:
+  # Explícito: Boot lo activa solo en algunas plataformas. Sin esto, X-Forwarded-For podría
+  # falsear la IP del límite de login (spec 06, REQ-2.3).
+  forward-headers-strategy: none
   error:
     include-stacktrace: never
+
+# Spec 06, REQ-5: la documentación de la API solo existe con el perfil dev (se activa abajo).
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 management:
   endpoint:
@@ -25,9 +36,10 @@ management:
 
 app:
   jwt:
-    # Sin default: en un perfil que no sea "dev" el arranque debe fallar si
-    # no se provee explícitamente (>= 32 bytes para HS256).
-    secret: ${JWT_SECRET}
+    # Sin default: en un perfil que no sea "dev" el arranque falla si no se provee
+    # (>= 32 bytes). Valida StartupConfigChecker: un ${JWT_SECRET} sin resolver
+    # se enlazaría como texto literal.
+    secret: ${JWT_SECRET:}
     ttl: 60m
   cors:
     allowed-origins:
@@ -38,10 +50,18 @@ spring:
   config:
     activate:
       on-profile: dev
+  datasource:
+    password: ${DB_PASSWORD:enterpriselab}
   flyway:
     # En dev se suma el seed de usuarios de prueba (tarea 9); en el resto de
     # los perfiles solo corre el esquema de db/migration.
     locations: classpath:db/migration,classpath:db/seed
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 
 app:
   jwt:
